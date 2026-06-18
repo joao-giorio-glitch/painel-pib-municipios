@@ -1,10 +1,87 @@
-"use client";
+﻿"use client";
 
 import EChart from "../../../components/EChart";
 import Card from "../ui/Card";
 import type { MesoregionData, MunicipalityData, SelectedLevel, StateData } from "../../types/economic-dashboard";
 import { calculateContributionToGrowth } from "../../lib/economic-calculations";
 import { formatPercent } from "../../lib/formatters";
+
+type ContributorSeries = {
+  name: string;
+  values: Array<number | { value: number; municipality?: string; contribution?: number; referenceGrowth?: number }>;
+  color?: string;
+};
+
+const cityPalette = [
+  "#38bdf8",
+  "#34d399",
+  "#fbbf24",
+  "#fb7185",
+  "#a78bfa",
+  "#2dd4bf",
+  "#f97316",
+  "#60a5fa",
+  "#84cc16",
+  "#f472b6",
+  "#22c55e",
+  "#e879f9",
+  "#06b6d4",
+  "#fde047",
+  "#c084fc",
+  "#4ade80"
+];
+const otherColor = "#94a3b8";
+
+function calculateRelativeContribution(previousShare: number, growth: number, referenceGrowth: number) {
+  const contribution = calculateContributionToGrowth(previousShare, growth);
+  return {
+    value: referenceGrowth === 0 ? 0 : contribution / referenceGrowth,
+    contribution,
+    referenceGrowth
+  };
+}
+function buildTopMunicipalityContributors(
+  selectedMesoregion: MesoregionData,
+  municipalities: MunicipalityData[],
+  years: number[]
+): ContributorSeries[] {
+  const scope = municipalities.filter((item) => item.mesoregionId === selectedMesoregion.id);
+  const yearlyContributions = years.map((year) =>
+    scope
+      .map((item) => {
+        const previousShare = item.mesoregionShareByYear[year - 1];
+        const growth = item.pibSeries.find((row) => row.year === year)?.growth ?? 0;
+        return {
+          name: item.name,
+          value: calculateContributionToGrowth(previousShare, growth)
+        };
+      })
+      .sort((a, b) => b.value - a.value)
+  );
+  const topNames = Array.from(
+    new Set(yearlyContributions.flatMap((rows) => rows.slice(0, 6).map((row) => row.name)))
+  );
+
+  return [
+    ...topNames.map((name, index) => ({
+      name,
+      color: cityPalette[index % cityPalette.length],
+      values: yearlyContributions.map((rows) => {
+        const topRows = rows.slice(0, 6);
+        const item = topRows.find((row) => row.name === name);
+        return item ? { value: item.value, municipality: item.name } : 0;
+      })
+    })),
+    {
+      name: "Outros",
+      color: otherColor,
+      values: yearlyContributions.map((rows) => ({
+        value: rows.slice(6).reduce((sum, row) => sum + row.value, 0),
+        municipality: "Outros"
+      }))
+    }
+  ];
+}
 
 type Props = {
   level: SelectedLevel;
@@ -15,6 +92,26 @@ type Props = {
   municipalities: MunicipalityData[];
 };
 
+function tooltipFormatter(params: any[]) {
+  const visibleParams = params.filter((item) => {
+    const rawValue = typeof item.data === "object" ? item.data.value : item.value;
+    return item.seriesType === "line" || Math.abs(Number(rawValue)) > 1e-12;
+  });
+
+  return [
+    `<strong>${params[0]?.axisValue ?? ""}</strong>`,
+    ...visibleParams.map((item) => {
+      const rawValue = typeof item.data === "object" ? item.data.value : item.value;
+      const label = typeof item.data === "object" && item.data.municipality ? item.data.municipality : item.seriesName;
+      const calculation =
+        typeof item.data === "object" && Number.isFinite(item.data.contribution) && Number.isFinite(item.data.referenceGrowth)
+          ? ` (${formatPercent(item.data.contribution)} / ${formatPercent(item.data.referenceGrowth)})`
+          : "";
+      return `${item.marker}${label}: ${formatPercent(Number(rawValue))}${calculation}`;
+    })
+  ].join("<br />");
+}
+
 export default function ContributionToGrowthChart({
   level,
   state,
@@ -24,7 +121,7 @@ export default function ContributionToGrowthChart({
   municipalities
 }: Props) {
   const years = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
-  const contributors =
+  const contributors: ContributorSeries[] =
     level === "state"
       ? mesoregions.map((item) => ({
           name: item.name,
@@ -35,41 +132,65 @@ export default function ContributionToGrowthChart({
           })
         }))
       : level === "mesoregion" && selectedMesoregion
-        ? municipalities
-            .filter((item) => item.mesoregionId === selectedMesoregion.id)
-            .map((item) => ({
-              name: item.name,
-              values: years.map((year) => {
-                const previousShare = item.mesoregionShareByYear[year - 1];
-                const growth = item.pibSeries.find((row) => row.year === year)?.growth ?? 0;
-                return calculateContributionToGrowth(previousShare, growth);
-              })
-            }))
+        ? buildTopMunicipalityContributors(selectedMesoregion, municipalities, years)
         : selectedMunicipality
           ? [
               {
                 name: "Para mesorregião",
-                values: years.map((year) =>
-                  calculateContributionToGrowth(
+                values: years.map((year) => {
+                  const municipalityGrowth = selectedMunicipality.pibSeries.find((row) => row.year === year)?.growth ?? 0;
+                  const mesoregionGrowth = selectedMesoregion?.pibSeries.find((row) => row.year === year)?.growth ?? 0;
+                  return calculateRelativeContribution(
                     selectedMunicipality.mesoregionShareByYear[year - 1],
-                    selectedMunicipality.pibSeries.find((row) => row.year === year)?.growth ?? 0
-                  )
-                )
+                    municipalityGrowth,
+                    mesoregionGrowth
+                  );
+                })
               },
               {
                 name: "Para SC",
-                values: years.map((year) =>
-                  calculateContributionToGrowth(
+                values: years.map((year) => {
+                  const municipalityGrowth = selectedMunicipality.pibSeries.find((row) => row.year === year)?.growth ?? 0;
+                  const stateGrowth = state.pibSeries.find((row) => row.year === year)?.growth ?? 0;
+                  return calculateRelativeContribution(
                     selectedMunicipality.stateShareByYear[year - 1],
-                    selectedMunicipality.pibSeries.find((row) => row.year === year)?.growth ?? 0
-                  )
-                )
+                    municipalityGrowth,
+                    stateGrowth
+                  );
+                })
               }
             ]
           : [];
 
+  const lineSeries =
+    level === "state"
+      ? [
+          {
+            name: "Crescimento SC",
+            type: "line",
+            data: years.map((year) => state.pibSeries.find((row) => row.year === year)?.growth ?? 0),
+            symbolSize: 7,
+            lineStyle: { width: 2.5, color: "#1f2724" },
+            itemStyle: { color: "#1f2724" },
+            z: 3
+          }
+        ]
+      : level === "mesoregion" && selectedMesoregion
+        ? [
+            {
+              name: "Crescimento mesorregional",
+              type: "line",
+              data: years.map((year) => selectedMesoregion.pibSeries.find((row) => row.year === year)?.growth ?? 0),
+              symbolSize: 7,
+              lineStyle: { width: 2.5, color: "#1f2724" },
+              itemStyle: { color: "#1f2724" },
+              z: 3
+            }
+          ]
+        : [];
+
   const option = {
-    tooltip: { trigger: "axis", valueFormatter: (value: number) => formatPercent(value) },
+    tooltip: { trigger: "axis", formatter: tooltipFormatter },
     legend: { type: "scroll", top: 0 },
     grid: { left: 44, right: 16, top: 52, bottom: 30 },
     xAxis: { type: "category", data: years },
@@ -79,24 +200,16 @@ export default function ContributionToGrowthChart({
         name: item.name,
         type: "bar",
         stack: level === "municipality" ? undefined : "total",
-        data: item.values
+        data: item.values,
+        itemStyle: item.color ? { color: item.color } : undefined
       })),
-      ...(level === "state"
-        ? [
-            {
-              name: "Crescimento SC",
-              type: "line",
-              data: years.map((year) => state.pibSeries.find((row) => row.year === year)?.growth ?? 0)
-            }
-          ]
-        : [])
+      ...lineSeries
     ]
   };
 
   return (
-    <Card title="Contribuição ao crescimento">
+    <Card title="Contribuição ao crescimento" tooltip="Mostra quanto cada território contribui para a variação anual do PIB do território de referência.">
       <EChart option={option} height={300} />
     </Card>
   );
 }
-

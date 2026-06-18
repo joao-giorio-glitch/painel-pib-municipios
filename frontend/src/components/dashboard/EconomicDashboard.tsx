@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import Header from "./Header";
@@ -7,8 +7,7 @@ import KPISection from "./KPISection";
 import PibEvolutionChart from "./PibEvolutionChart";
 import GrowthAndCagrChart from "./GrowthAndCagrChart";
 import ContributionToGrowthChart from "./ContributionToGrowthChart";
-import NarrativeInsightCard from "./NarrativeInsightCard";
-import type { SelectedLevel, SelectedMetric } from "../../types/economic-dashboard";
+import type { SelectedLevel } from "../../types/economic-dashboard";
 import { buildDashboardDataset } from "../../lib/build-dashboard-dataset";
 
 export default function EconomicDashboard({ data }: { data: any }) {
@@ -18,7 +17,6 @@ export default function EconomicDashboard({ data }: { data: any }) {
   const [selectedLevel, setSelectedLevel] = useState<SelectedLevel>("state");
   const [selectedMesoregionId, setSelectedMesoregionId] = useState<string | undefined>();
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string | undefined>();
-  const [selectedMetric, setSelectedMetric] = useState<SelectedMetric>("share");
 
   const selectedMesoregion = useMemo(
     () => mesoregions.find((item) => item.id === selectedMesoregionId),
@@ -70,13 +68,9 @@ export default function EconomicDashboard({ data }: { data: any }) {
   return (
     <main className="economic-dashboard">
       <Header
-        selectedYear={selectedYear}
         selectedLevel={selectedLevel}
-        selectedMetric={selectedMetric}
         selectedMesoregion={selectedMesoregion?.name}
         selectedMunicipality={selectedMunicipality?.name}
-        onYearChange={setSelectedYear}
-        onMetricChange={setSelectedMetric}
         onBreadcrumbClick={goToLevel}
         onBack={goBack}
       />
@@ -87,10 +81,10 @@ export default function EconomicDashboard({ data }: { data: any }) {
           selectedYear={selectedYear}
           selectedMesoregion={selectedMesoregion}
           selectedMunicipality={selectedMunicipality}
-          selectedMetric={selectedMetric}
           state={state}
           mesoregions={mesoregions}
           municipalities={municipalities}
+          onYearChange={setSelectedYear}
           onMesoregionClick={selectMesoregion}
           onMunicipalityClick={selectMunicipality}
         />
@@ -109,15 +103,6 @@ export default function EconomicDashboard({ data }: { data: any }) {
           <GrowthAndCagrChart level={selectedLevel} state={state} mesoregion={selectedMesoregion} municipality={selectedMunicipality} />
           <ContributionToGrowthChart
             level={selectedLevel}
-            state={state}
-            selectedMesoregion={selectedMesoregion}
-            selectedMunicipality={selectedMunicipality}
-            mesoregions={mesoregions}
-            municipalities={municipalities}
-          />
-          <NarrativeInsightCard
-            level={selectedLevel}
-            selectedYear={selectedYear}
             state={state}
             selectedMesoregion={selectedMesoregion}
             selectedMunicipality={selectedMunicipality}

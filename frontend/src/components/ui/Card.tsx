@@ -1,11 +1,26 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 
-export default function Card({ title, children, className = "" }: { title?: string; children: ReactNode; className?: string }) {
+type Props = {
+  title?: string;
+  tooltip?: string;
+  children: ReactNode;
+  className?: string;
+};
+
+export default function Card({ title, tooltip, children, className = "" }: Props) {
   return (
     <section className={`economic-card ${className}`}>
-      {title ? <h2>{title}</h2> : null}
+      {title ? (
+        <div className="card-title-row">
+          <h2>{title}</h2>
+          {tooltip ? (
+            <span className="info-tooltip" tabIndex={0} aria-label={tooltip}>
+              i
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       {children}
     </section>
   );
 }
-

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import EChart from "../../../components/EChart";
@@ -26,6 +26,11 @@ function accumulatedCagr(series: YearValue[]) {
   return series.slice(1).map((row) => calculateCAGR(base.pib, row.pib, row.year - base.year));
 }
 
+function cagrPeriodLabels(years: number[]) {
+  const baseYear = String(years[0]).slice(-2);
+  return years.slice(1).map((year) => `${baseYear}-${String(year).slice(-2)}`);
+}
+
 export default function GrowthAndCagrChart({ level, state, mesoregion, municipality }: Props) {
   const [mode, setMode] = useState<Mode>("growth");
   const primary =
@@ -41,7 +46,7 @@ export default function GrowthAndCagrChart({ level, state, mesoregion, municipal
   ];
 
   const years = primary.series.map((row) => row.year);
-  const chartYears = mode === "cagr" ? years.slice(1) : years;
+  const chartYears = mode === "cagr" ? cagrPeriodLabels(years) : years;
   const option = {
     tooltip: {
       trigger: "axis",
@@ -67,13 +72,13 @@ export default function GrowthAndCagrChart({ level, state, mesoregion, municipal
   };
 
   return (
-    <Card title="Crescimento e CAGR">
-      <div className="mini-toggle">
+    <Card title="Visualizações de Crescimento">
+      <div className="mini-toggle growth-view-toggle" aria-label="Selecionar visualização de crescimento">
         <button className={mode === "growth" ? "active" : ""} onClick={() => setMode("growth")}>
           Crescimento anual
         </button>
         <button className={mode === "cagr" ? "active" : ""} onClick={() => setMode("cagr")}>
-          CAGR acumulado
+          CAGR
         </button>
         <button className={mode === "base" ? "active" : ""} onClick={() => setMode("base")}>
           Base 2023 = 100

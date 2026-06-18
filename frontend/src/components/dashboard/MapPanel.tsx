@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import * as echarts from "echarts";
 import EChart from "../../../components/EChart";
-import type { MesoregionData, MunicipalityData, SelectedLevel, SelectedMetric, StateData, YearValue } from "../../types/economic-dashboard";
+import type { MesoregionData, MunicipalityData, SelectedLevel, StateData, YearValue } from "../../types/economic-dashboard";
 import { formatCurrencyBRL, formatPercent } from "../../lib/formatters";
 import { geoJsonSources } from "../../data/geojson-placeholders";
 
@@ -14,19 +14,13 @@ type Props = {
   selectedYear: number;
   selectedMesoregion?: MesoregionData;
   selectedMunicipality?: MunicipalityData;
-  selectedMetric: SelectedMetric;
   state: StateData;
   mesoregions: MesoregionData[];
   municipalities: MunicipalityData[];
+  onYearChange: (year: number) => void;
   onMesoregionClick: (name: string) => void;
   onMunicipalityClick: (name: string) => void;
 };
-
-function metricLabel(metric: SelectedMetric) {
-  if (metric === "pib") return "PIB";
-  if (metric === "growth") return "crescimento anual";
-  return "participacao";
-}
 
 function normalizeSearch(value: string) {
   return value
@@ -90,11 +84,7 @@ function buildRankingOption({
         const item = params[0];
         const data = item?.data;
         if (!item || !data) return "";
-        return [
-          `<strong>${item.name}</strong>`,
-          `Ranking: ${data.rank}o`,
-          `PIB: ${formatCurrencyBRL(data.value)}`
-        ].join("<br />");
+        return [`<strong>${item.name}</strong>`, `Ranking: ${data.rank}º`, `PIB: ${formatCurrencyBRL(data.value)}`].join("<br />");
       }
     },
     title: {
@@ -143,16 +133,15 @@ export default function MapPanel({
   selectedYear,
   selectedMesoregion,
   selectedMunicipality,
-  selectedMetric,
   state,
   mesoregions,
   municipalities,
+  onYearChange,
   onMesoregionClick,
   onMunicipalityClick
 }: Props) {
   const [mapState, setMapState] = useState<{ name: string; ready: boolean }>({ name: "sc-mesorregioes", ready: false });
   const [viewMode, setViewMode] = useState<RankingMode>("map");
-  const [rankingYear, setRankingYear] = useState(2030);
   const [rankingAutoPlay, setRankingAutoPlay] = useState(false);
   const [municipalitySearch, setMunicipalitySearch] = useState("");
 
@@ -181,22 +170,21 @@ export default function MapPanel({
   }, [level, selectedMesoregion]);
 
   useEffect(() => {
-    if (!rankingAutoPlay || viewMode === "map") {
+    if (!rankingAutoPlay) {
       return undefined;
     }
 
     const interval = window.setInterval(() => {
-      setRankingYear((current) => {
-        if (current >= 2030) {
-          setRankingAutoPlay(false);
-          return 2030;
-        }
-        return current + 1;
-      });
+      if (selectedYear >= 2030) {
+        setRankingAutoPlay(false);
+        onYearChange(2030);
+        return;
+      }
+      onYearChange(selectedYear + 1);
     }, 1100);
 
     return () => window.clearInterval(interval);
-  }, [rankingAutoPlay, viewMode]);
+  }, [onYearChange, rankingAutoPlay, selectedYear]);
 
   const years = state.pibSeries.map((row) => row.year).filter((year) => year >= 2023 && year <= 2030);
   const rows = useMemo(() => {
@@ -205,12 +193,7 @@ export default function MapPanel({
         const row = item.pibSeries.find((entry) => entry.year === selectedYear)!;
         return {
           name: item.name,
-          value:
-            selectedMetric === "pib"
-              ? row.pib
-              : selectedMetric === "growth"
-                ? row.growth
-                : item.stateShareByYear[selectedYear],
+          value: row.growth,
           pib: row.pib,
           share: item.stateShareByYear[selectedYear],
           growth: row.growth,
@@ -225,19 +208,14 @@ export default function MapPanel({
       return {
         name: item.name,
         selected: item.id === selectedMunicipality?.id,
-        value:
-          selectedMetric === "pib"
-            ? row.pib
-            : selectedMetric === "growth"
-              ? row.growth
-              : item.mesoregionShareByYear[selectedYear],
+        value: row.growth,
         pib: row.pib,
         share: item.mesoregionShareByYear[selectedYear],
         growth: row.growth,
         cagr: item.cagr2023_2030
       };
     });
-  }, [level, mesoregions, municipalities, selectedMesoregion, selectedMetric, selectedMunicipality, selectedYear]);
+  }, [level, mesoregions, municipalities, selectedMesoregion, selectedMunicipality, selectedYear]);
 
   const values = rows.map((row) => row.value).filter(Number.isFinite);
   const mapOption = {
@@ -249,7 +227,7 @@ export default function MapPanel({
         return [
           `<strong>${params.name}</strong>`,
           `PIB: ${formatCurrencyBRL(data.pib)}`,
-          `Participacao: ${formatPercent(data.share)}`,
+          `Participação: ${formatPercent(data.share)}`,
           `Crescimento anual: ${formatPercent(data.growth)}`,
           `CAGR 2023-2030: ${formatPercent(data.cagr)}`
         ].join("<br />");
@@ -261,10 +239,14 @@ export default function MapPanel({
       left: 14,
       bottom: 14,
       calculable: true,
-      text: [`Maior ${metricLabel(selectedMetric)}`, `Menor ${metricLabel(selectedMetric)}`],
-      inRange: { color: ["#e7efe9", "#9cc9b9", "#2b8c7e", "#0e554d"] },
+      text: ["Maior crescimento", "Menor crescimento"],
+      inRange: { color: ["#f3f8f5", "#bfe4d4", "#4db6a2", "#0e554d"] },
       textStyle: { color: "#5f6d66" }
     },
+    animationDuration: 450,
+    animationDurationUpdate: 650,
+    animationEasing: "cubicOut",
+    animationEasingUpdate: "cubicOut",
     series: [
       {
         type: "map",
@@ -294,14 +276,14 @@ export default function MapPanel({
       ? null
       : buildRankingOption({
           rows: rankingRows,
-          selectedYear: rankingYear,
+          selectedYear,
           visibleCount: viewMode === "municipality-ranking" ? 25 : 12,
           title:
             viewMode === "mesoregion-ranking"
-              ? "PIB das mesorregioes por ano"
+              ? "PIB das mesorregiões por ano"
               : level === "state"
-                ? "PIB dos municipios de Santa Catarina por ano"
-                : `PIB dos municipios de ${selectedMesoregion?.name ?? ""} por ano`
+                ? "PIB dos municípios de Santa Catarina por ano"
+                : `PIB dos municípios de ${selectedMesoregion?.name ?? ""} por ano`
         });
 
   const mapEvents = useMemo(
@@ -330,20 +312,23 @@ export default function MapPanel({
     <section className="map-card">
       <div className="section-heading map-heading">
         <div>
-          <h2>
-            {viewMode === "map"
-              ? level === "state"
-                ? "Mapa por mesorregioes"
-                : `Municipios de ${selectedMesoregion?.name}`
-              : viewMode === "mesoregion-ranking"
-                ? "Ranking mesorregional"
-                : "Ranking municipal"}
-          </h2>
-          <p>
-            {viewMode === "map"
-              ? `Cor por ${metricLabel(selectedMetric)} no ano selecionado`
-              : "Barras por PIB anual, com animacao temporal ate 2030"}
-          </p>
+          <div className="section-title-row">
+            <h2>
+              {viewMode === "map"
+                ? level === "state"
+                  ? "Mapa por mesorregiões"
+                  : `Municípios de ${selectedMesoregion?.name}`
+                : viewMode === "mesoregion-ranking"
+                  ? "Ranking mesorregional"
+                  : "Ranking municipal"}
+            </h2>
+            {viewMode === "map" ? (
+              <span className="info-tooltip" tabIndex={0} aria-label="O mapa de calor usa a taxa de crescimento anual do PIB no ano selecionado.">
+                i
+              </span>
+            ) : null}
+          </div>
+          <p>{viewMode === "map" ? "Cor por crescimento anual no ano selecionado" : "Barras por PIB anual, com animação temporal até 2030"}</p>
         </div>
         <div className="map-controls">
           <div className="mini-toggle">
@@ -354,13 +339,13 @@ export default function MapPanel({
                 setViewMode("map");
               }}
             >
-              Mapa geografico
+              Mapa
             </button>
             {level === "state" ? (
               <button
                 className={viewMode === "mesoregion-ranking" ? "active" : ""}
                 onClick={() => {
-                  setRankingYear(2023);
+                  onYearChange(2023);
                   setRankingAutoPlay(true);
                   setMunicipalitySearch("");
                   setViewMode("mesoregion-ranking");
@@ -372,7 +357,7 @@ export default function MapPanel({
             <button
               className={viewMode === "municipality-ranking" ? "active" : ""}
               onClick={() => {
-                setRankingYear(2023);
+                onYearChange(2023);
                 setRankingAutoPlay(true);
                 setViewMode("municipality-ranking");
               }}
@@ -380,21 +365,28 @@ export default function MapPanel({
               Ranking municipal
             </button>
           </div>
-          {viewMode !== "map" ? (
-            <select
-              value={rankingYear}
-              onChange={(event) => {
-                setRankingAutoPlay(false);
-                setRankingYear(Number(event.target.value));
-              }}
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          ) : null}
+          <button
+            className={rankingAutoPlay ? "active" : ""}
+            onClick={() => {
+              if (selectedYear >= 2030) onYearChange(2023);
+              setRankingAutoPlay(true);
+            }}
+          >
+            Animar anos
+          </button>
+          <select
+            value={selectedYear}
+            onChange={(event) => {
+              setRankingAutoPlay(false);
+              onYearChange(Number(event.target.value));
+            }}
+          >
+            {years.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
           {viewMode === "municipality-ranking" ? (
             <input
               className="map-search"
@@ -404,7 +396,7 @@ export default function MapPanel({
                 setRankingAutoPlay(false);
                 setMunicipalitySearch(event.target.value);
               }}
-              placeholder="Buscar municipio"
+              placeholder="Buscar município"
             />
           ) : null}
         </div>
@@ -416,7 +408,7 @@ export default function MapPanel({
           <div className="map-loading" />
         )
       ) : rankingRows.length === 0 ? (
-        <div className="ranking-empty">Nenhum municipio encontrado para a busca.</div>
+        <div className="ranking-empty">Nenhum município encontrado para a busca.</div>
       ) : rankingOption ? (
         <EChart option={rankingOption} height={620} onEvents={rankingEvents} />
       ) : (

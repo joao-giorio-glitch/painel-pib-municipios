@@ -1,4 +1,4 @@
-import Card from "../ui/Card";
+﻿import Card from "../ui/Card";
 import type { MesoregionData, MunicipalityData, SelectedLevel, StateData } from "../../types/economic-dashboard";
 import { formatCurrencyBRL, formatPercent } from "../../lib/formatters";
 
@@ -12,12 +12,22 @@ type Props = {
   municipalities: MunicipalityData[];
 };
 
+type KpiItem = {
+  label: string;
+  value: string;
+  tooltip?: string;
+};
+
 function rowForYear(series: { year: number; pib: number; growth: number }[], year: number) {
   return series.find((row) => row.year === year) ?? series[0];
 }
 
 function rankByShare<T extends { id: string }>(rows: T[], selectedId: string, getShare: (row: T) => number) {
   return [...rows].sort((a, b) => getShare(b) - getShare(a)).findIndex((item) => item.id === selectedId) + 1;
+}
+
+function formatOrdinal(value: number) {
+  return value > 0 ? `${value}º` : "-";
 }
 
 export default function KPISection({ level, selectedYear, state, mesoregion, municipality, mesoregions, municipalities }: Props) {
@@ -30,7 +40,9 @@ export default function KPISection({ level, selectedYear, state, mesoregion, mun
   const largestMeso = [...mesoregions].sort(
     (a, b) => (b.stateShareByYear[selectedYear] ?? 0) - (a.stateShareByYear[selectedYear] ?? 0)
   )[0];
-  const fastestMeso = [...mesoregions].sort((a, b) => b.cagr2023_2030 - a.cagr2023_2030)[0];
+  const fastestMeso = [...mesoregions].sort(
+    (a, b) => rowForYear(b.pibSeries, selectedYear).growth - rowForYear(a.pibSeries, selectedYear).growth
+  )[0];
   const regionalMunicipalities = municipalities.filter((item) => item.mesoregionId === activeMeso.id);
   const largestMunicipality = [...regionalMunicipalities].sort(
     (a, b) => (b.mesoregionShareByYear[selectedYear] ?? 0) - (a.mesoregionShareByYear[selectedYear] ?? 0)
@@ -42,39 +54,46 @@ export default function KPISection({ level, selectedYear, state, mesoregion, mun
   );
   const stateRank = rankByShare(municipalities, activeMunicipality.id, (item) => item.stateShareByYear[selectedYear] ?? 0);
 
-  const kpis =
+  const kpis: KpiItem[] =
     level === "state"
       ? [
-          ["PIB de SC", formatCurrencyBRL(stateRow.pib)],
-          ["Crescimento anual", formatPercent(stateRow.growth)],
-          ["CAGR 2023-2030", formatPercent(state.cagr2023_2030)],
-          ["Maior participacao", largestMeso.name],
-          ["Maior crescimento", fastestMeso.name]
+          { label: "PIB de SC", value: formatCurrencyBRL(stateRow.pib) },
+          { label: "Crescimento anual", value: formatPercent(stateRow.growth), tooltip: "Variação do PIB em relação ao ano anterior." },
+          { label: "CAGR 2023-2030", value: formatPercent(state.cagr2023_2030), tooltip: "Taxa anual composta entre 2023 e 2030." },
+          { label: "Maior participação", value: largestMeso.name },
+          { label: "Maior crescimento", value: fastestMeso.name }
         ]
       : level === "mesoregion"
         ? [
-            ["PIB da mesorregiao", formatCurrencyBRL(mesoRow.pib)],
-            ["Participacao em SC", formatPercent(activeMeso.stateShareByYear[selectedYear])],
-            ["Crescimento anual", formatPercent(mesoRow.growth)],
-            ["CAGR 2023-2030", formatPercent(activeMeso.cagr2023_2030)],
-            ["Municipio lider", largestMunicipality?.name ?? "-"]
+            { label: "PIB da mesorregião", value: formatCurrencyBRL(mesoRow.pib) },
+            { label: "Participação em SC", value: formatPercent(activeMeso.stateShareByYear[selectedYear]) },
+            { label: "Crescimento anual", value: formatPercent(mesoRow.growth), tooltip: "Variação do PIB da mesorregião em relação ao ano anterior." },
+            { label: "CAGR 2023-2030", value: formatPercent(activeMeso.cagr2023_2030), tooltip: "Taxa anual composta entre 2023 e 2030." },
+            { label: "Município líder", value: largestMunicipality?.name ?? "-" }
           ]
         : [
-            ["PIB do municipio", formatCurrencyBRL(muniRow.pib)],
-            ["Part. na mesorregiao", formatPercent(activeMunicipality.mesoregionShareByYear[selectedYear])],
-            ["Part. em SC", formatPercent(activeMunicipality.stateShareByYear[selectedYear])],
-            ["Ranking regional", `${regionalRank}o`],
-            ["Ranking estadual", `${stateRank}o`],
-            ["Crescimento anual", formatPercent(muniRow.growth)],
-            ["CAGR 2023-2030", formatPercent(activeMunicipality.cagr2023_2030)]
+            { label: "PIB do município", value: formatCurrencyBRL(muniRow.pib) },
+            { label: "Part. na mesorregião", value: formatPercent(activeMunicipality.mesoregionShareByYear[selectedYear]) },
+            { label: "Part. em SC", value: formatPercent(activeMunicipality.stateShareByYear[selectedYear]) },
+            { label: "Ranking regional", value: formatOrdinal(regionalRank), tooltip: "Posição do município no PIB da mesorregião no ano selecionado." },
+            { label: "Ranking estadual", value: formatOrdinal(stateRank), tooltip: "Posição do município no PIB de Santa Catarina no ano selecionado." },
+            { label: "Crescimento anual", value: formatPercent(muniRow.growth), tooltip: "Variação do PIB municipal em relação ao ano anterior." },
+            { label: "CAGR 2023-2030", value: formatPercent(activeMunicipality.cagr2023_2030), tooltip: "Taxa anual composta entre 2023 e 2030." }
           ];
 
   return (
     <div className="kpi-grid">
-      {kpis.map(([label, value]) => (
-        <Card key={label} className="kpi-card">
-          <span>{label}</span>
-          <strong>{value}</strong>
+      {kpis.map((item) => (
+        <Card key={item.label} className="kpi-card">
+          <span className="kpi-label-row">
+            {item.label}
+            {item.tooltip ? (
+              <span className="info-tooltip" tabIndex={0} aria-label={item.tooltip}>
+                i
+              </span>
+            ) : null}
+          </span>
+          <strong>{item.value}</strong>
         </Card>
       ))}
     </div>
