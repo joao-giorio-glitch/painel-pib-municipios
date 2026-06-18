@@ -428,6 +428,56 @@ h2 {
   margin-bottom: 8px;
 }
 
+.map-heading {
+  align-items: flex-start;
+}
+
+.map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.map-controls .mini-toggle {
+  margin: 0;
+}
+
+.map-controls select {
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid #dce5df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #4f5f58;
+  font-weight: 750;
+}
+
+.map-search {
+  width: min(220px, 100%);
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #dce5df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2724;
+  font-weight: 650;
+}
+
+.map-search::placeholder {
+  color: #7b8982;
+}
+
+.ranking-empty {
+  display: grid;
+  min-height: 620px;
+  place-items: center;
+  border-radius: 8px;
+  background: #f4f7f5;
+  color: #65736d;
+  font-weight: 750;
+}
+
 .section-heading h2,
 .economic-card h2 {
   margin: 0;
@@ -526,6 +576,19 @@ h2 {
 
   .kpi-grid {
     grid-template-columns: 1fr;
+  }
+
+  .map-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .map-controls {
+    justify-content: flex-start;
+  }
+
+  .map-search {
+    width: 100%;
   }
 
   .metric-toggle,
