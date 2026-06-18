@@ -41,16 +41,18 @@ function byYear(rows: PibRow[]) {
 }
 
 function toSeries(rows: PibRow[], startYear: number, maxObservedYear: number): YearValue[] {
-  const ordered = byYear(rows).filter((row) => row.year >= startYear);
-  return ordered.map((row, index) => {
-    const previous = ordered[index - 1];
-    return {
-      year: row.year,
-      pib: Number(row.pib ?? 0),
-      growth: previous ? calculateGrowth(Number(row.pib ?? 0), Number(previous.pib ?? 0)) : 0,
-      isProjected: row.year > maxObservedYear
-    };
-  });
+  const ordered = byYear(rows);
+  return ordered
+    .map((row, index) => {
+      const previous = ordered[index - 1];
+      return {
+        year: row.year,
+        pib: Number(row.pib ?? 0),
+        growth: previous ? calculateGrowth(Number(row.pib ?? 0), Number(previous.pib ?? 0)) : 0,
+        isProjected: row.year > maxObservedYear
+      };
+    })
+    .filter((row) => row.year >= startYear);
 }
 
 export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset {

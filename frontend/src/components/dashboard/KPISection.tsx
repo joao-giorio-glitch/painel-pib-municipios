@@ -16,6 +16,10 @@ function rowForYear(series: { year: number; pib: number; growth: number }[], yea
   return series.find((row) => row.year === year) ?? series[0];
 }
 
+function rankByShare<T extends { id: string }>(rows: T[], selectedId: string, getShare: (row: T) => number) {
+  return [...rows].sort((a, b) => getShare(b) - getShare(a)).findIndex((item) => item.id === selectedId) + 1;
+}
+
 export default function KPISection({ level, selectedYear, state, mesoregion, municipality, mesoregions, municipalities }: Props) {
   const stateRow = rowForYear(state.pibSeries, selectedYear);
   const activeMeso = mesoregion ?? mesoregions[0];
@@ -31,6 +35,12 @@ export default function KPISection({ level, selectedYear, state, mesoregion, mun
   const largestMunicipality = [...regionalMunicipalities].sort(
     (a, b) => (b.mesoregionShareByYear[selectedYear] ?? 0) - (a.mesoregionShareByYear[selectedYear] ?? 0)
   )[0];
+  const regionalRank = rankByShare(
+    regionalMunicipalities,
+    activeMunicipality.id,
+    (item) => item.mesoregionShareByYear[selectedYear] ?? 0
+  );
+  const stateRank = rankByShare(municipalities, activeMunicipality.id, (item) => item.stateShareByYear[selectedYear] ?? 0);
 
   const kpis =
     level === "state"
@@ -38,21 +48,23 @@ export default function KPISection({ level, selectedYear, state, mesoregion, mun
           ["PIB de SC", formatCurrencyBRL(stateRow.pib)],
           ["Crescimento anual", formatPercent(stateRow.growth)],
           ["CAGR 2023-2030", formatPercent(state.cagr2023_2030)],
-          ["Maior participação", largestMeso.name],
+          ["Maior participacao", largestMeso.name],
           ["Maior crescimento", fastestMeso.name]
         ]
       : level === "mesoregion"
         ? [
-            ["PIB da mesorregião", formatCurrencyBRL(mesoRow.pib)],
-            ["Participação em SC", formatPercent(activeMeso.stateShareByYear[selectedYear])],
+            ["PIB da mesorregiao", formatCurrencyBRL(mesoRow.pib)],
+            ["Participacao em SC", formatPercent(activeMeso.stateShareByYear[selectedYear])],
             ["Crescimento anual", formatPercent(mesoRow.growth)],
             ["CAGR 2023-2030", formatPercent(activeMeso.cagr2023_2030)],
-            ["Município líder", largestMunicipality?.name ?? "-"]
+            ["Municipio lider", largestMunicipality?.name ?? "-"]
           ]
         : [
-            ["PIB do município", formatCurrencyBRL(muniRow.pib)],
-            ["Part. na mesorregião", formatPercent(activeMunicipality.mesoregionShareByYear[selectedYear])],
+            ["PIB do municipio", formatCurrencyBRL(muniRow.pib)],
+            ["Part. na mesorregiao", formatPercent(activeMunicipality.mesoregionShareByYear[selectedYear])],
             ["Part. em SC", formatPercent(activeMunicipality.stateShareByYear[selectedYear])],
+            ["Ranking regional", `${regionalRank}o`],
+            ["Ranking estadual", `${stateRank}o`],
             ["Crescimento anual", formatPercent(muniRow.growth)],
             ["CAGR 2023-2030", formatPercent(activeMunicipality.cagr2023_2030)]
           ];
@@ -68,4 +80,3 @@ export default function KPISection({ level, selectedYear, state, mesoregion, mun
     </div>
   );
 }
-

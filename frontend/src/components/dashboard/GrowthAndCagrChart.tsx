@@ -4,6 +4,7 @@ import { useState } from "react";
 import EChart from "../../../components/EChart";
 import Card from "../ui/Card";
 import type { MesoregionData, MunicipalityData, SelectedLevel, StateData, YearValue } from "../../types/economic-dashboard";
+import { calculateCAGR } from "../../lib/economic-calculations";
 import { formatPercent } from "../../lib/formatters";
 
 type Mode = "growth" | "cagr" | "base";
@@ -18,6 +19,11 @@ type Props = {
 function base100(series: YearValue[]) {
   const base = series[0].pib;
   return series.map((row) => (row.pib / base) * 100);
+}
+
+function accumulatedCagr(series: YearValue[]) {
+  const base = series[0];
+  return series.slice(1).map((row) => calculateCAGR(base.pib, row.pib, row.year - base.year));
 }
 
 export default function GrowthAndCagrChart({ level, state, mesoregion, municipality }: Props) {
@@ -35,6 +41,7 @@ export default function GrowthAndCagrChart({ level, state, mesoregion, municipal
   ];
 
   const years = primary.series.map((row) => row.year);
+  const chartYears = mode === "cagr" ? years.slice(1) : years;
   const option = {
     tooltip: {
       trigger: "axis",
@@ -42,14 +49,14 @@ export default function GrowthAndCagrChart({ level, state, mesoregion, municipal
     },
     legend: { top: 0 },
     grid: { left: 44, right: 16, top: 48, bottom: 30 },
-    xAxis: { type: "category", data: years },
-    yAxis: { type: "value" },
+    xAxis: { type: "category", data: chartYears },
+    yAxis: { type: "value", min: mode === "base" ? 90 : undefined },
     series:
       mode === "cagr"
         ? peers.map((item) => ({
             name: item.label,
             type: "bar",
-            data: years.map(() => item.cagr)
+            data: accumulatedCagr(item.series)
           }))
         : peers.map((item) => ({
             name: item.label,
@@ -76,4 +83,3 @@ export default function GrowthAndCagrChart({ level, state, mesoregion, municipal
     </Card>
   );
 }
-

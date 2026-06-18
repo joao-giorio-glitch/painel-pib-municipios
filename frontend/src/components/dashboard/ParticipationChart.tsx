@@ -20,45 +20,13 @@ export default function ParticipationChart({
   level,
   selectedYear,
   selectedMesoregion,
-  selectedMunicipality,
   mesoregions,
   municipalities,
   onMesoregionSelect,
   onMunicipalitySelect
 }: Props) {
-  if (level === "municipality" && selectedMunicipality) {
-    const regionalRank =
-      municipalities
-        .filter((item) => item.mesoregionId === selectedMunicipality.mesoregionId)
-        .sort((a, b) => (b.mesoregionShareByYear[selectedYear] ?? 0) - (a.mesoregionShareByYear[selectedYear] ?? 0))
-        .findIndex((item) => item.id === selectedMunicipality.id) + 1;
-    const stateRank =
-      [...municipalities]
-        .sort((a, b) => (b.stateShareByYear[selectedYear] ?? 0) - (a.stateShareByYear[selectedYear] ?? 0))
-        .findIndex((item) => item.id === selectedMunicipality.id) + 1;
-
-    return (
-      <Card title="Participação territorial">
-        <div className="composition-grid">
-          <div>
-            <span>Na mesorregião</span>
-            <strong>{formatPercent(selectedMunicipality.mesoregionShareByYear[selectedYear])}</strong>
-          </div>
-          <div>
-            <span>No estado</span>
-            <strong>{formatPercent(selectedMunicipality.stateShareByYear[selectedYear])}</strong>
-          </div>
-          <div>
-            <span>Ranking regional</span>
-            <strong>{regionalRank}º</strong>
-          </div>
-          <div>
-            <span>Ranking estadual</span>
-            <strong>{stateRank}º</strong>
-          </div>
-        </div>
-      </Card>
-    );
+  if (level === "municipality") {
+    return null;
   }
 
   const rows =
@@ -93,9 +61,8 @@ export default function ParticipationChart({
   };
 
   return (
-    <Card title={level === "state" ? "Participação das mesorregiões" : "Ranking municipal"}>
+    <Card title={level === "state" ? "Participacao das mesorregioes" : "Ranking municipal"}>
       <EChart option={option} height={level === "state" ? 260 : 320} onEvents={events} />
     </Card>
   );
 }
-
