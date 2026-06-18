@@ -490,36 +490,16 @@ h2 {
   font-size: 0.78rem;
 }
 
-.elasticity-table {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.elasticity-table div,
 .composition-grid div {
   padding: 10px;
   border-radius: 8px;
   background: #f4f7f5;
 }
 
-.elasticity-table strong,
-.elasticity-table span {
-  display: inline-block;
-  margin-right: 8px;
-}
-
-.elasticity-table p,
-.narrative-card p,
-.data-note {
+.narrative-card p {
   margin: 4px 0 0;
   color: #4f5f58;
   line-height: 1.45;
-}
-
-.data-note {
-  margin-bottom: 8px;
-  font-size: 0.86rem;
 }
 
 .composition-grid {

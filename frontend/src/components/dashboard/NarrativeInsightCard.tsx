@@ -38,24 +38,21 @@ export default function NarrativeInsightCard({
             const growthLeader = [...scope].sort((a, b) => b.cagr2023_2030 - a.cagr2023_2030)[0];
             return `${selectedMesoregion.name} representa ${formatPercent(
               selectedMesoregion.stateShareByYear[selectedYear]
-            )} do PIB de Santa Catarina. ${shareLeader.name} lidera a participação regional, enquanto ${
+            )} do PIB de Santa Catarina. ${shareLeader.name} lidera a participacao regional, enquanto ${
               growthLeader.name
             } apresenta a maior taxa composta de crescimento projetada.`;
           })()
         : selectedMunicipality
           ? `${selectedMunicipality.name} representa ${formatPercent(
               selectedMunicipality.mesoregionShareByYear[selectedYear]
-            )} do PIB da mesorregião e ${formatPercent(
+            )} do PIB da mesorregiao e ${formatPercent(
               selectedMunicipality.stateShareByYear[selectedYear]
-            )} do PIB estadual. Sua elasticidade município-SC de ${selectedMunicipality.betaToState.toFixed(
-              2
-            )} indica o grau de amplificação do ciclo estadual.`
+            )} do PIB estadual. Seu crescimento projetado pode ser comparado a trajetoria regional e estadual nos graficos acima.`
           : "";
 
   return (
-    <Card title="Leitura econômica automática" className="narrative-card">
+    <Card title="Leitura economica automatica" className="narrative-card">
       <p>{text}</p>
     </Card>
   );
 }
-

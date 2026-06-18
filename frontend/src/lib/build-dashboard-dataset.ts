@@ -53,23 +53,6 @@ function toSeries(rows: PibRow[], startYear: number, maxObservedYear: number): Y
   });
 }
 
-function deterministicNoise(seed: string, offset: number) {
-  const total = [...seed].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return ((total + offset * 37) % 17) / 100;
-}
-
-function buildSyntheticElasticities(seed: string, betaToState: number, betaToMesoregion?: number) {
-  return {
-    ...(betaToMesoregion === undefined ? {} : { toMesoregion: betaToMesoregion }),
-    toState: betaToState,
-    pibBrazil: 0.38 + deterministicNoise(seed, 1),
-    pibUSA: 0.14 + deterministicNoise(seed, 2),
-    pibChina: 0.18 + deterministicNoise(seed, 3),
-    selic: -0.12 - deterministicNoise(seed, 4),
-    exchangeRate: 0.1 + deterministicNoise(seed, 5)
-  };
-}
-
 export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset {
   const startYear = payload.metadata.maxObservedYear;
   const stateSeries = toSeries(payload.sc, startYear, payload.metadata.maxObservedYear);
@@ -78,18 +61,10 @@ export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset 
   const state: StateData = {
     name: "Santa Catarina",
     pibSeries: stateSeries,
-    cagr2023_2030: calculateCAGR(stateSeries[0]?.pib ?? 0, stateSeries.at(-1)?.pib ?? 0, stateSeries.length - 1),
-    elasticities: {
-      pibBrazil: 1.08,
-      pibUSA: 0.42,
-      pibChina: 0.51,
-      selic: -0.34,
-      exchangeRate: 0.27
-    },
-    elasticitySource: "synthetic"
+    cagr2023_2030: calculateCAGR(stateSeries[0]?.pib ?? 0, stateSeries.at(-1)?.pib ?? 0, stateSeries.length - 1)
   };
 
-  const mesoregions: MesoregionData[] = payload.metadata.mesoregions.map((name, index) => {
+  const mesoregions: MesoregionData[] = payload.metadata.mesoregions.map((name) => {
     const pibSeries = toSeries(
       payload.mesos.filter((row) => row.mesoregion === name),
       startYear,
@@ -98,19 +73,13 @@ export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset 
     const stateShareByYear = Object.fromEntries(
       pibSeries.map((row) => [row.year, calculateShare(row.pib, stateByYear.get(row.year)?.pib ?? 0)])
     );
-    const stateGrowthSum = stateSeries.slice(1).reduce((sum, row) => sum + row.growth, 0);
-    const mesoGrowthSum = pibSeries.slice(1).reduce((sum, row) => sum + row.growth, 0);
-    const betaToState = stateGrowthSum ? mesoGrowthSum / stateGrowthSum : 1;
 
     return {
       id: slug(name),
       name,
       pibSeries,
-      betaToState,
       cagr2023_2030: calculateCAGR(pibSeries[0]?.pib ?? 0, pibSeries.at(-1)?.pib ?? 0, pibSeries.length - 1),
-      stateShareByYear,
-      elasticities: buildSyntheticElasticities(`${name}-${index}`, betaToState),
-      elasticitySource: "synthetic"
+      stateShareByYear
     };
   });
 
@@ -127,7 +96,7 @@ export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset 
     )
   ].sort((a, b) => a.localeCompare(b, "pt-BR"));
 
-  const municipalities: MunicipalityData[] = municipalityNames.map((name, index) => {
+  const municipalities: MunicipalityData[] = municipalityNames.map((name) => {
     const rows = payload.municipios.filter((row) => row.municipio === name);
     const mesoregion = mesoByName.get(rows.find((row) => row.mesoregion)?.mesoregion ?? "") ?? mesoregions[0];
     const pibSeries = toSeries(rows, startYear, payload.metadata.maxObservedYear);
@@ -137,26 +106,17 @@ export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset 
     const stateShareByYear = Object.fromEntries(
       pibSeries.map((row) => [row.year, calculateShare(row.pib, stateByYear.get(row.year)?.pib ?? 0)])
     );
-    const mesoGrowthSum = mesoregion.pibSeries.slice(1).reduce((sum, row) => sum + row.growth, 0);
-    const municipalityGrowthSum = pibSeries.slice(1).reduce((sum, row) => sum + row.growth, 0);
-    const betaToMesoregion = mesoGrowthSum ? municipalityGrowthSum / mesoGrowthSum : 1;
-    const betaToState = betaToMesoregion * mesoregion.betaToState;
 
     return {
       id: slug(name),
       name,
       mesoregionId: mesoregion.id,
       pibSeries,
-      betaToMesoregion,
-      betaToState,
       cagr2023_2030: calculateCAGR(pibSeries[0]?.pib ?? 0, pibSeries.at(-1)?.pib ?? 0, pibSeries.length - 1),
       mesoregionShareByYear,
-      stateShareByYear,
-      elasticities: buildSyntheticElasticities(`${name}-${index}`, betaToState, betaToMesoregion),
-      elasticitySource: "synthetic"
+      stateShareByYear
     };
   });
 
   return { state, mesoregions, municipalities };
 }
-

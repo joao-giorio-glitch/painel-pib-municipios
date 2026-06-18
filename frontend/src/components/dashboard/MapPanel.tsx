@@ -73,8 +73,7 @@ export default function MapPanel({
           pib: row.pib,
           share: item.stateShareByYear[selectedYear],
           growth: row.growth,
-          cagr: item.cagr2023_2030,
-          beta: item.betaToState
+          cagr: item.cagr2023_2030
         };
       });
     }
@@ -94,8 +93,7 @@ export default function MapPanel({
         pib: row.pib,
         share: item.mesoregionShareByYear[selectedYear],
         growth: row.growth,
-        cagr: item.cagr2023_2030,
-        beta: item.betaToMesoregion
+        cagr: item.cagr2023_2030
       };
     });
   }, [level, mesoregions, municipalities, selectedMesoregion, selectedMetric, selectedMunicipality, selectedYear]);
@@ -112,8 +110,7 @@ export default function MapPanel({
           `PIB: ${formatCurrencyBRL(data.pib)}`,
           `Participação: ${formatPercent(data.share)}`,
           `Crescimento anual: ${formatPercent(data.growth)}`,
-          `CAGR 2023-2030: ${formatPercent(data.cagr)}`,
-          `Elasticidade: ${data.beta.toFixed(2)}`
+          `CAGR 2023-2030: ${formatPercent(data.cagr)}`
         ].join("<br />");
       }
     },
@@ -164,4 +161,3 @@ export default function MapPanel({
     </section>
   );
 }
-

@@ -16,12 +16,3 @@ export function calculateShare(partValue: number, totalValue: number) {
 export function calculateContributionToGrowth(previousShare: number, growthRate: number) {
   return previousShare * growthRate;
 }
-
-export function classifyElasticity(value: number) {
-  if (value < 0) return "efeito negativo/contracíclico";
-  const absolute = Math.abs(value);
-  if (absolute < 0.5) return "baixa sensibilidade";
-  if (absolute < 1) return "sensibilidade moderada";
-  return "alta sensibilidade";
-}
-

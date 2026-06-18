@@ -6,7 +6,6 @@ import MapPanel from "./MapPanel";
 import KPISection from "./KPISection";
 import PibEvolutionChart from "./PibEvolutionChart";
 import GrowthAndCagrChart from "./GrowthAndCagrChart";
-import ElasticityRadarChart from "./ElasticityRadarChart";
 import ParticipationChart from "./ParticipationChart";
 import ContributionToGrowthChart from "./ContributionToGrowthChart";
 import NarrativeInsightCard from "./NarrativeInsightCard";
@@ -109,7 +108,6 @@ export default function EconomicDashboard({ data }: { data: any }) {
           />
           <PibEvolutionChart level={selectedLevel} state={state} mesoregion={selectedMesoregion} municipality={selectedMunicipality} />
           <GrowthAndCagrChart level={selectedLevel} state={state} mesoregion={selectedMesoregion} municipality={selectedMunicipality} />
-          <ElasticityRadarChart level={selectedLevel} state={state} mesoregion={selectedMesoregion} municipality={selectedMunicipality} />
           <ParticipationChart
             level={selectedLevel}
             selectedYear={selectedYear}
