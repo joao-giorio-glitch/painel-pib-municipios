@@ -1,0 +1,26 @@
+{
+  "name": "painel-pib-municipios-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "npm run data:pib && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "data:pib": "node scripts/prepare-pib-data.mjs"
+  },
+  "dependencies": {
+    "@turf/dissolve": "^7.3.5",
+    "@turf/helpers": "^7.3.5",
+    "echarts": "^5.5.0",
+    "next": "^15.3.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "eslint": "^9.27.0",
+    "eslint-config-next": "^15.3.3"
+  }
+}
