@@ -4,6 +4,8 @@ export type SelectedMetric = "pib" | "share" | "growth";
 export type YearValue = {
   year: number;
   pib: number;
+  totalPib?: number;
+  population?: number;
   growth: number;
   isProjected: boolean;
 };

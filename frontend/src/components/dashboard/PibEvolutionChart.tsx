@@ -3,16 +3,17 @@
 import EChart from "../../../components/EChart";
 import Card from "../ui/Card";
 import type { MunicipalityData, SelectedLevel, StateData, VicePresidencyData } from "../../types/economic-dashboard";
-import { formatCurrencyBRL, formatPercent } from "../../lib/formatters";
+import { formatCurrencyBRL, formatPerCapitaBRL, formatPercent } from "../../lib/formatters";
 
 type Props = {
   level: SelectedLevel;
   state: StateData;
   vicePresidency?: VicePresidencyData;
   municipality?: MunicipalityData;
+  isPerCapita?: boolean;
 };
 
-export default function PibEvolutionChart({ level, state, vicePresidency, municipality }: Props) {
+export default function PibEvolutionChart({ level, state, vicePresidency, municipality, isPerCapita = false }: Props) {
   const primary =
     level === "municipality" && municipality
       ? { label: municipality.name, series: municipality.pibSeries }
@@ -28,7 +29,8 @@ export default function PibEvolutionChart({ level, state, vicePresidency, munici
         params
           .map((param) => {
             const row = primary.series[param.dataIndex];
-            return `${param.marker}${param.seriesName}: ${formatCurrencyBRL(param.value)}<br/>Crescimento: ${formatPercent(
+            const formattedValue = isPerCapita ? formatPerCapitaBRL(param.value) : formatCurrencyBRL(param.value);
+            return `${param.marker}${param.seriesName}: ${formattedValue}<br/>Crescimento: ${formatPercent(
               row.growth
             )}<br/>Status: ${row.isProjected ? "projetado" : "observado"}`;
           })
@@ -37,7 +39,7 @@ export default function PibEvolutionChart({ level, state, vicePresidency, munici
     legend: { top: 0 },
     grid: { left: 54, right: 18, top: 48, bottom: 28 },
     xAxis: { type: "category", data: years },
-    yAxis: { type: "value", axisLabel: { formatter: (value: number) => formatCurrencyBRL(value).replace("R$", "R$ ") } },
+    yAxis: { type: "value", axisLabel: { formatter: (value: number) => (isPerCapita ? formatPerCapitaBRL(value) : formatCurrencyBRL(value)).replace("R$", "R$ ") } },
     series: [
       {
         name: primary.label,
@@ -45,14 +47,14 @@ export default function PibEvolutionChart({ level, state, vicePresidency, munici
         smooth: true,
         showSymbol: false,
         areaStyle: { opacity: 0.08 },
-        markLine: { symbol: "none", data: [{ xAxis: 2023, label: { formatter: "último observado" } }] },
+        markLine: isPerCapita ? undefined : { symbol: "none", data: [{ xAxis: 2023, label: { formatter: "último observado" } }] },
         data: primary.series.map((row) => row.pib)
       }
     ]
   };
 
   return (
-    <Card title="Evolução do PIB" tooltip="Série anual do PIB no território selecionado. A linha vertical indica o último ano observado antes das projeções.">
+    <Card title={isPerCapita ? "Evolução do PIB per capita" : "Evolução do PIB"} tooltip="Série anual no território selecionado. A linha vertical indica o último ano observado antes das projeções.">
       <EChart option={option} height={300} />
     </Card>
   );

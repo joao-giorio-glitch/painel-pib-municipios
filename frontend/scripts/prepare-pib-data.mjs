@@ -21,9 +21,11 @@ const IBGE_SC_MUNICIPIOS_URL =
 const files = {
   municipios: path.join(processedDir, "PIB municipios long.xlsx"),
   municipalityVicePresidency: path.join(rawDir, "dim_municipio_vice_presidencia.xlsx"),
+  population: path.join(rawDir, "Pop.xlsx"),
   geoMunicipios: path.join(outputDir, "sc-municipios.geojson"),
   geoVicePresidencies: path.join(outputDir, "sc-vice-presidencias.geojson"),
-  pib: path.join(outputDir, "pib.json")
+  pib: path.join(outputDir, "pib.json"),
+  pibPerCapita: path.join(outputDir, "pib-per-capita.json")
 };
 
 function getValue(row, key) {
@@ -58,6 +60,25 @@ function readMunicipalityVicePresidencies(filePath) {
     const code = normalizeCode(getValue(row, "cd_municipio_6d"));
     const name = getValue(row, "nm_vice_presidencia");
     if (code && name) byCode.set(code, name);
+  });
+
+  return byCode;
+}
+
+function readPopulation(filePath) {
+  const byCode = new Map();
+
+  readRows(filePath).forEach((row) => {
+    const code = normalizeCode(getValue(row, "Cód. Munic"));
+    const series = new Map();
+
+    Object.entries(row).forEach(([key, value]) => {
+      if (/^20\d{2}$/.test(key) && Number.isFinite(Number(value))) {
+        series.set(Number(key), Number(value));
+      }
+    });
+
+    if (code && series.size) byCode.set(code, series);
   });
 
   return byCode;
@@ -110,6 +131,48 @@ function aggregateVicePresidenciesFromMunicipios(municipios) {
   return [...grouped.values()].sort(
     (a, b) => String(a.vicePresidency).localeCompare(String(b.vicePresidency), "pt-BR") || a.year - b.year
   );
+}
+
+function buildPerCapitaMunicipalRows(municipios, populationByCode) {
+  return municipios
+    .filter((row) => !row.isStateTotal && row.year >= 2022 && row.year <= 2025)
+    .map((row) => {
+      const population = populationByCode.get(row.code)?.get(row.year);
+      if (!population) {
+        throw new Error(`Município sem população para ${row.year}: código ${row.code}, nome ${row.municipio}`);
+      }
+
+      return {
+        ...row,
+        totalPib: row.pib,
+        population,
+        pib: row.pib / population
+      };
+    });
+}
+
+function aggregatePerCapita(rows, unitKey) {
+  const grouped = new Map();
+
+  rows.forEach((row) => {
+    const key = `${row[unitKey]}|${row.year}`;
+    const current = grouped.get(key) ?? {
+      date: row.date,
+      year: row.year,
+      [unitKey]: row[unitKey],
+      type: row.type,
+      totalPib: 0,
+      population: 0
+    };
+
+    current.totalPib += row.totalPib;
+    current.population += row.population;
+    grouped.set(key, current);
+  });
+
+  return [...grouped.values()]
+    .map((row) => ({ ...row, pib: row.totalPib / row.population }))
+    .sort((a, b) => String(a[unitKey]).localeCompare(String(b[unitKey]), "pt-BR") || a.year - b.year);
 }
 
 function uniqueSorted(rows, key) {
@@ -233,12 +296,33 @@ function buildMetadata(municipios, vicePresidencies) {
   };
 }
 
+function buildPerCapitaMetadata(municipios, vicePresidencies) {
+  const years = [...new Set([...municipios, ...vicePresidencies].map((row) => row.year))].sort((a, b) => a - b);
+  const finalYear = Math.max(...years);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    years,
+    dashboardStartYear: 2023,
+    maxObservedYear: finalYear,
+    projectionStartYear: null,
+    finalProjectionYear: finalYear,
+    scCode: SC_CODE,
+    municipios: uniqueSorted(municipios, "municipio"),
+    vicePresidencies: uniqueSorted(municipios, "vicePresidency")
+  };
+}
+
 fs.mkdirSync(outputDir, { recursive: true });
 
 const vicePresidencyByCode = readMunicipalityVicePresidencies(files.municipalityVicePresidency);
 const municipios = readMunicipios(files.municipios, vicePresidencyByCode);
 const vicePresidencies = aggregateVicePresidenciesFromMunicipios(municipios);
 const scByYear = new Map(municipios.filter((row) => row.isStateTotal).map((row) => [row.year, row]));
+const populationByCode = readPopulation(files.population);
+const perCapitaMunicipios = buildPerCapitaMunicipalRows(municipios, populationByCode);
+const perCapitaVicePresidencies = aggregatePerCapita(perCapitaMunicipios, "vicePresidency");
+const perCapitaSc = aggregatePerCapita(perCapitaMunicipios.map((row) => ({ ...row, state: "Santa Catarina" })), "state");
 
 const municipalityMetrics = addProjectionMetrics(
   municipios.filter((row) => !row.isStateTotal),
@@ -261,11 +345,21 @@ const payload = {
   }
 };
 
+const perCapitaPayload = {
+  metadata: buildPerCapitaMetadata(perCapitaMunicipios, perCapitaVicePresidencies),
+  municipios: perCapitaMunicipios,
+  vicePresidencies: perCapitaVicePresidencies,
+  sc: perCapitaSc,
+  metrics: {}
+};
+
 fs.writeFileSync(files.pib, JSON.stringify(payload));
+fs.writeFileSync(files.pibPerCapita, JSON.stringify(perCapitaPayload));
 fs.writeFileSync(files.geoMunicipios, JSON.stringify(municipalityGeoJson));
 fs.writeFileSync(files.geoVicePresidencies, JSON.stringify(vicePresidencyGeoJson));
 
 console.log(`Arquivo salvo: ${files.pib}`);
+console.log(`Arquivo PIB per capita: ${files.pibPerCapita}`);
 console.log(`GeoJSON municípios: ${files.geoMunicipios}`);
 console.log(`GeoJSON vice-presidências: ${files.geoVicePresidencies}`);
 console.log(`Municípios: ${municipios.length} registros`);

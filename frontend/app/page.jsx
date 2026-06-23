@@ -1,8 +1,8 @@
 import EconomicDashboard from "../src/components/dashboard/EconomicDashboard";
-import { loadPibData } from "../lib/loadPibData";
+import { loadDashboardData } from "../lib/loadPibData";
 
 export default async function Home() {
-  const data = await loadPibData();
+  const data = await loadDashboardData();
 
   return <EconomicDashboard data={data} />;
 }

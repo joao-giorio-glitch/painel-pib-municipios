@@ -11,7 +11,8 @@ import type { SelectedLevel } from "../../types/economic-dashboard";
 import { buildDashboardDataset } from "../../lib/build-dashboard-dataset";
 
 export default function EconomicDashboard({ data }: { data: any }) {
-  const dataset = useMemo(() => buildDashboardDataset(data), [data]);
+  const [mode, setMode] = useState<"pib" | "per-capita">("pib");
+  const dataset = useMemo(() => buildDashboardDataset(mode === "per-capita" ? data.perCapita : data.pib), [data, mode]);
   const { state, vicePresidencies, municipalities } = dataset;
   const [selectedYear, setSelectedYear] = useState(2023);
   const [selectedLevel, setSelectedLevel] = useState<SelectedLevel>("state");
@@ -33,6 +34,11 @@ export default function EconomicDashboard({ data }: { data: any }) {
     setSelectedVicePresidencyId(vicePresidency.id);
     setSelectedMunicipalityId(undefined);
     setSelectedLevel("vice-presidency");
+  }
+
+  function changeMode(nextMode: "pib" | "per-capita") {
+    setMode(nextMode);
+    setSelectedYear(nextMode === "per-capita" ? 2025 : 2023);
   }
 
   function selectMunicipality(name: string) {
@@ -69,8 +75,10 @@ export default function EconomicDashboard({ data }: { data: any }) {
     <main className="economic-dashboard">
       <Header
         selectedLevel={selectedLevel}
+        mode={mode}
         selectedVicePresidency={selectedVicePresidency?.name}
         selectedMunicipality={selectedMunicipality?.name}
+        onModeChange={changeMode}
         onBreadcrumbClick={goToLevel}
         onBack={goBack}
       />
@@ -84,6 +92,7 @@ export default function EconomicDashboard({ data }: { data: any }) {
           state={state}
           vicePresidencies={vicePresidencies}
           municipalities={municipalities}
+          isPerCapita={mode === "per-capita"}
           onYearChange={setSelectedYear}
           onVicePresidencyClick={selectVicePresidency}
           onMunicipalityClick={selectMunicipality}
@@ -98,9 +107,10 @@ export default function EconomicDashboard({ data }: { data: any }) {
             municipality={selectedMunicipality}
             vicePresidencies={vicePresidencies}
             municipalities={municipalities}
+            isPerCapita={mode === "per-capita"}
           />
-          <PibEvolutionChart level={selectedLevel} state={state} vicePresidency={selectedVicePresidency} municipality={selectedMunicipality} />
-          <GrowthAndCagrChart level={selectedLevel} state={state} vicePresidency={selectedVicePresidency} municipality={selectedMunicipality} />
+          <PibEvolutionChart level={selectedLevel} state={state} vicePresidency={selectedVicePresidency} municipality={selectedMunicipality} isPerCapita={mode === "per-capita"} />
+          <GrowthAndCagrChart level={selectedLevel} state={state} vicePresidency={selectedVicePresidency} municipality={selectedMunicipality} isPerCapita={mode === "per-capita"} />
           <ContributionToGrowthChart
             level={selectedLevel}
             state={state}
@@ -108,6 +118,7 @@ export default function EconomicDashboard({ data }: { data: any }) {
             selectedMunicipality={selectedMunicipality}
             vicePresidencies={vicePresidencies}
             municipalities={municipalities}
+            isPerCapita={mode === "per-capita"}
           />
         </aside>
       </section>

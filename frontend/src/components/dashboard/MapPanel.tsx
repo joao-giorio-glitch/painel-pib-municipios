@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as echarts from "echarts";
 import EChart from "../../../components/EChart";
 import type { MunicipalityData, SelectedLevel, StateData, VicePresidencyData, YearValue } from "../../types/economic-dashboard";
-import { formatCurrencyBRL, formatPercent } from "../../lib/formatters";
+import { formatCurrencyBRL, formatPerCapitaBRL, formatPercent } from "../../lib/formatters";
 import { geoJsonSources } from "../../data/geojson-placeholders";
 
 type RankingMode = "map" | "vice-presidency-ranking" | "municipality-ranking";
@@ -17,6 +17,7 @@ type Props = {
   state: StateData;
   vicePresidencies: VicePresidencyData[];
   municipalities: MunicipalityData[];
+  isPerCapita?: boolean;
   onYearChange: (year: number) => void;
   onVicePresidencyClick: (name: string) => void;
   onMunicipalityClick: (name: string) => void;
@@ -37,13 +38,16 @@ function buildRankingOption({
   rows,
   selectedYear,
   visibleCount,
-  title
+  title,
+  isPerCapita
 }: {
   rows: Array<{ name: string; series: YearValue[] }>;
   selectedYear: number;
   visibleCount: number;
   title: string;
+  isPerCapita: boolean;
 }) {
+  const formatValue = isPerCapita ? formatPerCapitaBRL : formatCurrencyBRL;
   const rankingRows = rows
     .map((item) => ({ name: item.name, value: rowByYear(item.series, selectedYear).pib }))
     .filter((row) => Number.isFinite(row.value))
@@ -84,7 +88,7 @@ function buildRankingOption({
         const item = params[0];
         const data = item?.data;
         if (!item || !data) return "";
-        return [`<strong>${item.name}</strong>`, `Ranking: ${data.rank}º`, `PIB: ${formatCurrencyBRL(data.value)}`].join("<br />");
+        return [`<strong>${item.name}</strong>`, `Ranking: ${data.rank}º`, `${isPerCapita ? "PIB per capita" : "PIB"}: ${formatValue(data.value)}`].join("<br />");
       }
     },
     title: {
@@ -98,7 +102,7 @@ function buildRankingOption({
     xAxis: {
       type: "value",
       max: (value: { max: number }) => value.max * 1.18,
-      axisLabel: { formatter: (value: number) => formatCurrencyBRL(value).replace("R$", "R$ ") }
+      axisLabel: { formatter: (value: number) => formatValue(value).replace("R$", "R$ ") }
     },
     yAxis: {
       type: "category",
@@ -116,7 +120,7 @@ function buildRankingOption({
           position: "right",
           distance: 8,
           color: "#1f2724",
-          formatter: (params: any) => formatCurrencyBRL(params.value)
+          formatter: (params: any) => formatValue(params.value)
         },
         labelLayout: { hideOverlap: false }
       }
@@ -136,6 +140,7 @@ export default function MapPanel({
   state,
   vicePresidencies,
   municipalities,
+  isPerCapita = false,
   onYearChange,
   onVicePresidencyClick,
   onMunicipalityClick
@@ -175,9 +180,10 @@ export default function MapPanel({
     if (!rankingAutoPlay) return undefined;
 
     const interval = window.setInterval(() => {
-      if (selectedYear >= 2030) {
+      const finalYear = years.at(-1) ?? selectedYear;
+      if (selectedYear >= finalYear) {
         setRankingAutoPlay(false);
-        onYearChange(2030);
+        onYearChange(finalYear);
         return;
       }
       onYearChange(selectedYear + 1);
@@ -186,7 +192,8 @@ export default function MapPanel({
     return () => window.clearInterval(interval);
   }, [onYearChange, rankingAutoPlay, selectedYear]);
 
-  const years = state.pibSeries.map((row) => row.year).filter((year) => year >= 2023 && year <= 2030);
+  const years = state.pibSeries.map((row) => row.year);
+  const formatValue = isPerCapita ? formatPerCapitaBRL : formatCurrencyBRL;
   const rows = useMemo(() => {
     if (level === "state") {
       return vicePresidencies.map((item) => {
@@ -226,10 +233,10 @@ export default function MapPanel({
         if (!data) return params.name;
         return [
           `<strong>${params.name}</strong>`,
-          `PIB: ${formatCurrencyBRL(data.pib)}`,
+          `${isPerCapita ? "PIB per capita" : "PIB"}: ${formatValue(data.pib)}`,
           `Participação: ${formatPercent(data.share)}`,
           `Crescimento anual: ${formatPercent(data.growth)}`,
-          `CAGR 2023-2030: ${formatPercent(data.cagr)}`
+          `CAGR ${years[0] ?? 2023}-${years.at(-1) ?? 2030}: ${formatPercent(data.cagr)}`
         ].join("<br />");
       }
     },
@@ -278,12 +285,13 @@ export default function MapPanel({
           rows: rankingRows,
           selectedYear,
           visibleCount: viewMode === "municipality-ranking" ? 25 : 12,
+          isPerCapita,
           title:
             viewMode === "vice-presidency-ranking"
-              ? "PIB das vice-presidências por ano"
+              ? `${isPerCapita ? "PIB per capita" : "PIB"} das vice-presidências por ano`
               : level === "state"
-                ? "PIB dos municípios de Santa Catarina por ano"
-                : `PIB dos municípios de ${selectedVicePresidency?.name ?? ""} por ano`
+                ? `${isPerCapita ? "PIB per capita" : "PIB"} dos municípios de Santa Catarina por ano`
+                : `${isPerCapita ? "PIB per capita" : "PIB"} dos municípios de ${selectedVicePresidency?.name ?? ""} por ano`
         });
 
   const mapEvents = useMemo(
@@ -328,7 +336,7 @@ export default function MapPanel({
               </span>
             ) : null}
           </div>
-          <p>{viewMode === "map" ? "Cor por crescimento anual no ano selecionado" : "Barras por PIB anual, com animação temporal até 2030"}</p>
+          <p>{viewMode === "map" ? "Cor por crescimento anual no ano selecionado" : `Barras por PIB anual, com animação temporal até ${years.at(-1)}`}</p>
         </div>
         <div className="map-controls">
           <div className="mini-toggle">
@@ -345,7 +353,7 @@ export default function MapPanel({
               <button
                 className={viewMode === "vice-presidency-ranking" ? "active" : ""}
                 onClick={() => {
-                  onYearChange(2023);
+                  onYearChange(years[0] ?? selectedYear);
                   setRankingAutoPlay(true);
                   setMunicipalitySearch("");
                   setViewMode("vice-presidency-ranking");
@@ -357,7 +365,7 @@ export default function MapPanel({
             <button
               className={viewMode === "municipality-ranking" ? "active" : ""}
               onClick={() => {
-                onYearChange(2023);
+                onYearChange(years[0] ?? selectedYear);
                 setRankingAutoPlay(true);
                 setViewMode("municipality-ranking");
               }}
@@ -368,7 +376,7 @@ export default function MapPanel({
           <button
             className={rankingAutoPlay ? "active" : ""}
             onClick={() => {
-              if (selectedYear >= 2030) onYearChange(2023);
+              if (selectedYear >= (years.at(-1) ?? selectedYear)) onYearChange(years[0] ?? selectedYear);
               setRankingAutoPlay(true);
             }}
           >

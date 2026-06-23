@@ -7,12 +7,15 @@ type PibRow = {
   vicePresidency?: string;
   isStateTotal?: boolean;
   pib: number;
+  totalPib?: number;
+  population?: number;
   type?: string;
 };
 
 type RawPibPayload = {
   metadata: {
     maxObservedYear: number;
+    dashboardStartYear?: number;
     finalProjectionYear: number;
     vicePresidencies: string[];
   };
@@ -48,6 +51,8 @@ function toSeries(rows: PibRow[], startYear: number, maxObservedYear: number): Y
       return {
         year: row.year,
         pib: Number(row.pib ?? 0),
+        totalPib: Number(row.totalPib ?? row.pib ?? 0),
+        population: Number(row.population ?? 0) || undefined,
         growth: previous ? calculateGrowth(Number(row.pib ?? 0), Number(previous.pib ?? 0)) : 0,
         isProjected: row.year > maxObservedYear
       };
@@ -56,7 +61,7 @@ function toSeries(rows: PibRow[], startYear: number, maxObservedYear: number): Y
 }
 
 export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset {
-  const startYear = payload.metadata.maxObservedYear;
+  const startYear = payload.metadata.dashboardStartYear ?? payload.metadata.maxObservedYear;
   const stateSeries = toSeries(payload.sc, startYear, payload.metadata.maxObservedYear);
   const stateByYear = new Map(stateSeries.map((row) => [row.year, row]));
 

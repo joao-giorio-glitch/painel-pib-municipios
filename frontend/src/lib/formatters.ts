@@ -7,6 +7,10 @@ export function formatCurrencyBRL(value: number) {
   }).format(value || 0);
 }
 
+export function formatPerCapitaBRL(value: number) {
+  return `${formatCurrencyBRL(value)} / hab.`;
+}
+
 export function formatFullCurrencyBRL(value: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -21,4 +25,3 @@ export function formatPercent(value: number, digits = 2) {
     minimumFractionDigits: digits
   }).format((value || 0) * 100)}%`;
 }
-

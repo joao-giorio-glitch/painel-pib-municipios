@@ -1,6 +1,6 @@
 import Card from "../ui/Card";
 import type { MunicipalityData, SelectedLevel, StateData, VicePresidencyData } from "../../types/economic-dashboard";
-import { formatCurrencyBRL, formatPercent } from "../../lib/formatters";
+import { formatCurrencyBRL, formatPerCapitaBRL, formatPercent } from "../../lib/formatters";
 
 type Props = {
   level: SelectedLevel;
@@ -10,6 +10,7 @@ type Props = {
   municipality?: MunicipalityData;
   vicePresidencies: VicePresidencyData[];
   municipalities: MunicipalityData[];
+  isPerCapita?: boolean;
 };
 
 type KpiItem = {
@@ -37,7 +38,8 @@ export default function KPISection({
   vicePresidency,
   municipality,
   vicePresidencies,
-  municipalities
+  municipalities,
+  isPerCapita = false
 }: Props) {
   const stateRow = rowForYear(state.pibSeries, selectedYear);
   const activeVicePresidency = vicePresidency ?? vicePresidencies[0];
@@ -62,32 +64,35 @@ export default function KPISection({
     (item) => item.vicePresidencyShareByYear[selectedYear] ?? 0
   );
   const stateRank = rankByShare(municipalities, activeMunicipality.id, (item) => item.stateShareByYear[selectedYear] ?? 0);
+  const formatValue = isPerCapita ? formatPerCapitaBRL : formatCurrencyBRL;
+  const measureName = isPerCapita ? "PIB per capita" : "PIB";
+  const cagrLabel = `CAGR ${state.pibSeries[0]?.year ?? 2023}-${state.pibSeries.at(-1)?.year ?? 2030}`;
 
   const kpis: KpiItem[] =
     level === "state"
       ? [
-          { label: "PIB de SC", value: formatCurrencyBRL(stateRow.pib) },
+          { label: `${measureName} de SC`, value: formatValue(stateRow.pib) },
           { label: "Crescimento anual", value: formatPercent(stateRow.growth), tooltip: "Variação do PIB em relação ao ano anterior." },
-          { label: "CAGR 2023-2030", value: formatPercent(state.cagr2023_2030), tooltip: "Taxa anual composta entre 2023 e 2030." },
+          { label: cagrLabel, value: formatPercent(state.cagr2023_2030), tooltip: `Taxa anual composta entre ${state.pibSeries[0]?.year ?? 2023} e ${state.pibSeries.at(-1)?.year ?? 2030}.` },
           { label: "Maior participação", value: largestVicePresidency.name },
           { label: "Maior crescimento", value: fastestVicePresidency.name }
         ]
       : level === "vice-presidency"
         ? [
-            { label: "PIB da vice-presidência", value: formatCurrencyBRL(vicePresidencyRow.pib) },
+            { label: `${measureName} da vice-presidência`, value: formatValue(vicePresidencyRow.pib) },
             { label: "Participação em SC", value: formatPercent(activeVicePresidency.stateShareByYear[selectedYear]) },
             { label: "Crescimento anual", value: formatPercent(vicePresidencyRow.growth), tooltip: "Variação do PIB da vice-presidência em relação ao ano anterior." },
-            { label: "CAGR 2023-2030", value: formatPercent(activeVicePresidency.cagr2023_2030), tooltip: "Taxa anual composta entre 2023 e 2030." },
+            { label: cagrLabel, value: formatPercent(activeVicePresidency.cagr2023_2030), tooltip: `Taxa anual composta entre ${state.pibSeries[0]?.year ?? 2023} e ${state.pibSeries.at(-1)?.year ?? 2030}.` },
             { label: "Município líder", value: largestMunicipality?.name ?? "-" }
           ]
         : [
-            { label: "PIB do município", value: formatCurrencyBRL(municipalityRow.pib) },
+            { label: `${measureName} do município`, value: formatValue(municipalityRow.pib) },
             { label: "Part. na vice-presidência", value: formatPercent(activeMunicipality.vicePresidencyShareByYear[selectedYear]) },
             { label: "Part. em SC", value: formatPercent(activeMunicipality.stateShareByYear[selectedYear]) },
             { label: "Ranking na vice-presidência", value: formatOrdinal(vicePresidencyRank), tooltip: "Posição do município no PIB da vice-presidência no ano selecionado." },
             { label: "Ranking estadual", value: formatOrdinal(stateRank), tooltip: "Posição do município no PIB de Santa Catarina no ano selecionado." },
             { label: "Crescimento anual", value: formatPercent(municipalityRow.growth), tooltip: "Variação do PIB municipal em relação ao ano anterior." },
-            { label: "CAGR 2023-2030", value: formatPercent(activeMunicipality.cagr2023_2030), tooltip: "Taxa anual composta entre 2023 e 2030." }
+            { label: cagrLabel, value: formatPercent(activeMunicipality.cagr2023_2030), tooltip: `Taxa anual composta entre ${state.pibSeries[0]?.year ?? 2023} e ${state.pibSeries.at(-1)?.year ?? 2030}.` }
           ];
 
   return (

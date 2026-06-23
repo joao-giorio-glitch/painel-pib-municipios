@@ -45,20 +45,50 @@ function calculateRateContribution(
     referenceBase: previousReferencePib
   };
 }
+
+function calculatePerCapitaContribution(
+  component: { totalPib?: number; population?: number },
+  previousComponent: { totalPib?: number; population?: number },
+  reference: { totalPib?: number; population?: number },
+  previousReference: { totalPib?: number; population?: number }
+) {
+  const previousPib = previousReference.totalPib ?? 0;
+  const previousPopulation = previousReference.population ?? 0;
+  const currentPopulation = reference.population ?? 0;
+  const componentPibChange = (component.totalPib ?? 0) - (previousComponent.totalPib ?? 0);
+  const componentPopulationChange = (component.population ?? 0) - (previousComponent.population ?? 0);
+
+  if (!previousPib || !previousPopulation || !currentPopulation) return 0;
+
+  const referencePopulationGrowth = (currentPopulation - previousPopulation) / previousPopulation;
+  return (
+    (componentPibChange / previousPib - componentPopulationChange / previousPopulation) /
+    (1 + referencePopulationGrowth)
+  );
+}
+
 function buildTopMunicipalityContributors(
   selectedVicePresidency: VicePresidencyData,
   municipalities: MunicipalityData[],
-  years: number[]
+  years: number[],
+  isPerCapita: boolean
 ): ContributorSeries[] {
   const scope = municipalities.filter((item) => item.vicePresidencyId === selectedVicePresidency.id);
   const yearlyContributions = years.map((year) =>
     scope
       .map((item) => {
-        const previousShare = item.vicePresidencyShareByYear[year - 1];
-        const growth = item.pibSeries.find((row) => row.year === year)?.growth ?? 0;
+        const currentRow = item.pibSeries.find((row) => row.year === year);
+        const previousRow = item.pibSeries.find((row) => row.year === year - 1);
+        const referenceRow = selectedVicePresidency.pibSeries.find((row) => row.year === year);
+        const previousReferenceRow = selectedVicePresidency.pibSeries.find((row) => row.year === year - 1);
         return {
           name: item.name,
-          value: calculateContributionToGrowth(previousShare, growth)
+          value: isPerCapita
+            ? calculatePerCapitaContribution(currentRow ?? {}, previousRow ?? {}, referenceRow ?? {}, previousReferenceRow ?? {})
+            : calculateContributionToGrowth(
+                item.vicePresidencyShareByYear[year - 1],
+                currentRow?.growth ?? 0
+              )
         };
       })
       .sort((a, b) => b.value - a.value)
@@ -95,6 +125,7 @@ type Props = {
   selectedMunicipality?: MunicipalityData;
   vicePresidencies: VicePresidencyData[];
   municipalities: MunicipalityData[];
+  isPerCapita?: boolean;
 };
 
 function tooltipFormatter(params: any[]) {
@@ -123,21 +154,26 @@ export default function ContributionToGrowthChart({
   selectedVicePresidency,
   selectedMunicipality,
   vicePresidencies,
-  municipalities
+  municipalities,
+  isPerCapita = false
 }: Props) {
-  const years = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
+  const years = state.pibSeries.slice(1).map((row) => row.year);
   const contributors: ContributorSeries[] =
     level === "state"
       ? vicePresidencies.map((item) => ({
           name: item.name,
           values: years.map((year) => {
-            const previousShare = item.stateShareByYear[year - 1];
-            const growth = item.pibSeries.find((row) => row.year === year)?.growth ?? 0;
-            return calculateContributionToGrowth(previousShare, growth);
+            const currentRow = item.pibSeries.find((row) => row.year === year);
+            const previousRow = item.pibSeries.find((row) => row.year === year - 1);
+            const referenceRow = state.pibSeries.find((row) => row.year === year);
+            const previousReferenceRow = state.pibSeries.find((row) => row.year === year - 1);
+            return isPerCapita
+              ? calculatePerCapitaContribution(currentRow ?? {}, previousRow ?? {}, referenceRow ?? {}, previousReferenceRow ?? {})
+              : calculateContributionToGrowth(item.stateShareByYear[year - 1], currentRow?.growth ?? 0);
           })
         }))
       : level === "vice-presidency" && selectedVicePresidency
-        ? buildTopMunicipalityContributors(selectedVicePresidency, municipalities, years)
+        ? buildTopMunicipalityContributors(selectedVicePresidency, municipalities, years, isPerCapita)
         : selectedMunicipality
           ? [
               {
@@ -146,11 +182,19 @@ export default function ContributionToGrowthChart({
                   const municipalityRow = selectedMunicipality.pibSeries.find((row) => row.year === year);
                   const previousMunicipalityRow = selectedMunicipality.pibSeries.find((row) => row.year === year - 1);
                   const previousVicePresidencyRow = selectedVicePresidency?.pibSeries.find((row) => row.year === year - 1);
-                  return calculateRateContribution(
-                    municipalityRow?.pib ?? 0,
-                    previousMunicipalityRow?.pib ?? 0,
-                    previousVicePresidencyRow?.pib ?? 0
-                  );
+                  const vicePresidencyRow = selectedVicePresidency?.pibSeries.find((row) => row.year === year);
+                  return isPerCapita
+                    ? calculatePerCapitaContribution(
+                        municipalityRow ?? {},
+                        previousMunicipalityRow ?? {},
+                        vicePresidencyRow ?? {},
+                        previousVicePresidencyRow ?? {}
+                      )
+                    : calculateRateContribution(
+                        municipalityRow?.pib ?? 0,
+                        previousMunicipalityRow?.pib ?? 0,
+                        previousVicePresidencyRow?.pib ?? 0
+                      );
                 })
               },
               {
@@ -159,11 +203,19 @@ export default function ContributionToGrowthChart({
                   const municipalityRow = selectedMunicipality.pibSeries.find((row) => row.year === year);
                   const previousMunicipalityRow = selectedMunicipality.pibSeries.find((row) => row.year === year - 1);
                   const previousStateRow = state.pibSeries.find((row) => row.year === year - 1);
-                  return calculateRateContribution(
-                    municipalityRow?.pib ?? 0,
-                    previousMunicipalityRow?.pib ?? 0,
-                    previousStateRow?.pib ?? 0
-                  );
+                  const stateRow = state.pibSeries.find((row) => row.year === year);
+                  return isPerCapita
+                    ? calculatePerCapitaContribution(
+                        municipalityRow ?? {},
+                        previousMunicipalityRow ?? {},
+                        stateRow ?? {},
+                        previousStateRow ?? {}
+                      )
+                    : calculateRateContribution(
+                        municipalityRow?.pib ?? 0,
+                        previousMunicipalityRow?.pib ?? 0,
+                        previousStateRow?.pib ?? 0
+                      );
                 })
               }
             ]
@@ -215,7 +267,7 @@ export default function ContributionToGrowthChart({
   };
 
   return (
-    <Card title="Contribuição ao crescimento" tooltip="Mostra quanto cada território contribui para a variação anual do PIB do território de referência.">
+    <Card title="Contribuição ao crescimento" tooltip={isPerCapita ? "Decompõe o crescimento do PIB per capita entre a variação do PIB e da população em cada território." : "Mostra quanto cada território contribui para a variação anual do PIB do território de referência."}>
       <EChart option={option} height={300} />
     </Card>
   );

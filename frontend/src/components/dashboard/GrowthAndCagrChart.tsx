@@ -14,6 +14,7 @@ type Props = {
   state: StateData;
   vicePresidency?: VicePresidencyData;
   municipality?: MunicipalityData;
+  isPerCapita?: boolean;
 };
 
 function base100(series: YearValue[]) {
@@ -31,7 +32,7 @@ function cagrPeriodLabels(years: number[]) {
   return years.slice(1).map((year) => `${baseYear}-${String(year).slice(-2)}`);
 }
 
-export default function GrowthAndCagrChart({ level, state, vicePresidency, municipality }: Props) {
+export default function GrowthAndCagrChart({ level, state, vicePresidency, municipality, isPerCapita = false }: Props) {
   const [mode, setMode] = useState<Mode>("growth");
   const primary =
     level === "municipality" && municipality
@@ -72,7 +73,7 @@ export default function GrowthAndCagrChart({ level, state, vicePresidency, munic
   };
 
   return (
-    <Card title="Visualizações de Crescimento">
+    <Card title={isPerCapita ? "Visualizações de Crescimento do PIB per capita" : "Visualizações de Crescimento"}>
       <div className="mini-toggle growth-view-toggle" aria-label="Selecionar visualização de crescimento">
         <button className={mode === "growth" ? "active" : ""} onClick={() => setMode("growth")}>
           Crescimento anual
