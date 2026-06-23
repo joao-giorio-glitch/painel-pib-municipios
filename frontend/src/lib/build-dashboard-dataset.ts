@@ -1,10 +1,10 @@
-import type { MesoregionData, MunicipalityData, StateData, YearValue } from "../types/economic-dashboard";
+import type { MunicipalityData, StateData, VicePresidencyData, YearValue } from "../types/economic-dashboard";
 import { calculateCAGR, calculateGrowth, calculateShare } from "./economic-calculations";
 
 type PibRow = {
   year: number;
   municipio?: string;
-  mesoregion?: string;
+  vicePresidency?: string;
   isStateTotal?: boolean;
   pib: number;
   type?: string;
@@ -14,16 +14,16 @@ type RawPibPayload = {
   metadata: {
     maxObservedYear: number;
     finalProjectionYear: number;
-    mesoregions: string[];
+    vicePresidencies: string[];
   };
   municipios: PibRow[];
-  mesos: PibRow[];
+  vicePresidencies: PibRow[];
   sc: PibRow[];
 };
 
 export type DashboardDataset = {
   state: StateData;
-  mesoregions: MesoregionData[];
+  vicePresidencies: VicePresidencyData[];
   municipalities: MunicipalityData[];
 };
 
@@ -66,9 +66,9 @@ export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset 
     cagr2023_2030: calculateCAGR(stateSeries[0]?.pib ?? 0, stateSeries.at(-1)?.pib ?? 0, stateSeries.length - 1)
   };
 
-  const mesoregions: MesoregionData[] = payload.metadata.mesoregions.map((name) => {
+  const vicePresidencies: VicePresidencyData[] = payload.metadata.vicePresidencies.map((name) => {
     const pibSeries = toSeries(
-      payload.mesos.filter((row) => row.mesoregion === name),
+      payload.vicePresidencies.filter((row) => row.vicePresidency === name),
       startYear,
       payload.metadata.maxObservedYear
     );
@@ -85,9 +85,9 @@ export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset 
     };
   });
 
-  const mesoByName = new Map(mesoregions.map((item) => [item.name, item]));
-  const mesoByYear = new Map(
-    mesoregions.flatMap((meso) => meso.pibSeries.map((row) => [`${meso.id}|${row.year}`, row] as const))
+  const vicePresidencyByName = new Map(vicePresidencies.map((item) => [item.name, item]));
+  const vicePresidencyByYear = new Map(
+    vicePresidencies.flatMap((item) => item.pibSeries.map((row) => [`${item.id}|${row.year}`, row] as const))
   );
 
   const municipalityNames = [
@@ -100,10 +100,14 @@ export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset 
 
   const municipalities: MunicipalityData[] = municipalityNames.map((name) => {
     const rows = payload.municipios.filter((row) => row.municipio === name);
-    const mesoregion = mesoByName.get(rows.find((row) => row.mesoregion)?.mesoregion ?? "") ?? mesoregions[0];
+    const vicePresidency =
+      vicePresidencyByName.get(rows.find((row) => row.vicePresidency)?.vicePresidency ?? "") ?? vicePresidencies[0];
     const pibSeries = toSeries(rows, startYear, payload.metadata.maxObservedYear);
-    const mesoregionShareByYear = Object.fromEntries(
-      pibSeries.map((row) => [row.year, calculateShare(row.pib, mesoByYear.get(`${mesoregion.id}|${row.year}`)?.pib ?? 0)])
+    const vicePresidencyShareByYear = Object.fromEntries(
+      pibSeries.map((row) => [
+        row.year,
+        calculateShare(row.pib, vicePresidencyByYear.get(`${vicePresidency.id}|${row.year}`)?.pib ?? 0)
+      ])
     );
     const stateShareByYear = Object.fromEntries(
       pibSeries.map((row) => [row.year, calculateShare(row.pib, stateByYear.get(row.year)?.pib ?? 0)])
@@ -112,13 +116,13 @@ export function buildDashboardDataset(payload: RawPibPayload): DashboardDataset 
     return {
       id: slug(name),
       name,
-      mesoregionId: mesoregion.id,
+      vicePresidencyId: vicePresidency.id,
       pibSeries,
       cagr2023_2030: calculateCAGR(pibSeries[0]?.pib ?? 0, pibSeries.at(-1)?.pib ?? 0, pibSeries.length - 1),
-      mesoregionShareByYear,
+      vicePresidencyShareByYear,
       stateShareByYear
     };
   });
 
-  return { state, mesoregions, municipalities };
+  return { state, vicePresidencies, municipalities };
 }

@@ -2,7 +2,7 @@
 
 import EChart from "../../../components/EChart";
 import Card from "../ui/Card";
-import type { MesoregionData, MunicipalityData, SelectedLevel, StateData } from "../../types/economic-dashboard";
+import type { MunicipalityData, SelectedLevel, StateData, VicePresidencyData } from "../../types/economic-dashboard";
 import { calculateContributionToGrowth } from "../../lib/economic-calculations";
 import { formatPercent } from "../../lib/formatters";
 
@@ -41,15 +41,15 @@ function calculateRelativeContribution(previousShare: number, growth: number, re
   };
 }
 function buildTopMunicipalityContributors(
-  selectedMesoregion: MesoregionData,
+  selectedVicePresidency: VicePresidencyData,
   municipalities: MunicipalityData[],
   years: number[]
 ): ContributorSeries[] {
-  const scope = municipalities.filter((item) => item.mesoregionId === selectedMesoregion.id);
+  const scope = municipalities.filter((item) => item.vicePresidencyId === selectedVicePresidency.id);
   const yearlyContributions = years.map((year) =>
     scope
       .map((item) => {
-        const previousShare = item.mesoregionShareByYear[year - 1];
+        const previousShare = item.vicePresidencyShareByYear[year - 1];
         const growth = item.pibSeries.find((row) => row.year === year)?.growth ?? 0;
         return {
           name: item.name,
@@ -86,9 +86,9 @@ function buildTopMunicipalityContributors(
 type Props = {
   level: SelectedLevel;
   state: StateData;
-  selectedMesoregion?: MesoregionData;
+  selectedVicePresidency?: VicePresidencyData;
   selectedMunicipality?: MunicipalityData;
-  mesoregions: MesoregionData[];
+  vicePresidencies: VicePresidencyData[];
   municipalities: MunicipalityData[];
 };
 
@@ -115,15 +115,15 @@ function tooltipFormatter(params: any[]) {
 export default function ContributionToGrowthChart({
   level,
   state,
-  selectedMesoregion,
+  selectedVicePresidency,
   selectedMunicipality,
-  mesoregions,
+  vicePresidencies,
   municipalities
 }: Props) {
   const years = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
   const contributors: ContributorSeries[] =
     level === "state"
-      ? mesoregions.map((item) => ({
+      ? vicePresidencies.map((item) => ({
           name: item.name,
           values: years.map((year) => {
             const previousShare = item.stateShareByYear[year - 1];
@@ -131,19 +131,19 @@ export default function ContributionToGrowthChart({
             return calculateContributionToGrowth(previousShare, growth);
           })
         }))
-      : level === "mesoregion" && selectedMesoregion
-        ? buildTopMunicipalityContributors(selectedMesoregion, municipalities, years)
+      : level === "vice-presidency" && selectedVicePresidency
+        ? buildTopMunicipalityContributors(selectedVicePresidency, municipalities, years)
         : selectedMunicipality
           ? [
               {
-                name: "Para mesorregião",
+                name: "Para vice-presidência",
                 values: years.map((year) => {
                   const municipalityGrowth = selectedMunicipality.pibSeries.find((row) => row.year === year)?.growth ?? 0;
-                  const mesoregionGrowth = selectedMesoregion?.pibSeries.find((row) => row.year === year)?.growth ?? 0;
+                  const vicePresidencyGrowth = selectedVicePresidency?.pibSeries.find((row) => row.year === year)?.growth ?? 0;
                   return calculateRelativeContribution(
-                    selectedMunicipality.mesoregionShareByYear[year - 1],
+                    selectedMunicipality.vicePresidencyShareByYear[year - 1],
                     municipalityGrowth,
-                    mesoregionGrowth
+                    vicePresidencyGrowth
                   );
                 })
               },
@@ -175,12 +175,12 @@ export default function ContributionToGrowthChart({
             z: 3
           }
         ]
-      : level === "mesoregion" && selectedMesoregion
+      : level === "vice-presidency" && selectedVicePresidency
         ? [
             {
-              name: "Crescimento mesorregional",
+              name: "Crescimento da vice-presidência",
               type: "line",
-              data: years.map((year) => selectedMesoregion.pibSeries.find((row) => row.year === year)?.growth ?? 0),
+              data: years.map((year) => selectedVicePresidency.pibSeries.find((row) => row.year === year)?.growth ?? 0),
               symbolSize: 7,
               lineStyle: { width: 2.5, color: "#1f2724" },
               itemStyle: { color: "#1f2724" },

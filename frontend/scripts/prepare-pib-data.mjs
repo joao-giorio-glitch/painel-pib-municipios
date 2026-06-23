@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 const frontendDir = path.resolve(__dirname, "..");
 const projectDir = path.resolve(frontendDir, "..");
 const processedDir = path.join(projectDir, "Dados", "Processado");
+const rawDir = path.join(projectDir, "Dados", "Bruto");
 const outputDir = path.join(frontendDir, "public", "data");
 
 const MAX_OBSERVED_YEAR = 2023;
@@ -19,21 +20,14 @@ const IBGE_SC_MUNICIPIOS_URL =
 
 const files = {
   municipios: path.join(processedDir, "PIB municipios long.xlsx"),
-  mesos: path.join(processedDir, "PIB mesos long.xlsx"),
+  municipalityVicePresidency: path.join(rawDir, "dim_municipio_vice_presidencia.xlsx"),
   geoMunicipios: path.join(outputDir, "sc-municipios.geojson"),
-  geoMesos: path.join(outputDir, "sc-mesorregioes.geojson"),
+  geoVicePresidencies: path.join(outputDir, "sc-vice-presidencias.geojson"),
   pib: path.join(outputDir, "pib.json")
 };
 
-const MESOREGION_OVERRIDES_BY_CODE = new Map([
-  ["421935", "Vale do Itajai"],
-  ["421690", "Oeste Catarinense"]
-]);
-
 function getValue(row, key) {
-  if (Object.hasOwn(row, key)) {
-    return row[key];
-  }
+  if (Object.hasOwn(row, key)) return row[key];
 
   const normalizedKey = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const foundKey = Object.keys(row).find(
@@ -43,48 +37,68 @@ function getValue(row, key) {
 }
 
 function parseDate(value) {
-  if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
-  }
-
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
   return new Date(value).toISOString().slice(0, 10);
 }
 
-function readMunicipios(filePath) {
-  const workbook = xlsx.readFile(filePath, { cellDates: true });
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+function normalizeCode(value) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  return (digits.length > 6 ? digits.slice(0, 6) : digits).padStart(6, "0");
+}
 
-  return xlsx.utils.sheet_to_json(firstSheet, { defval: null }).map((row) => {
+function readRows(filePath, options = {}) {
+  const workbook = xlsx.readFile(filePath, options);
+  return xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: null });
+}
+
+function readMunicipalityVicePresidencies(filePath) {
+  const byCode = new Map();
+
+  readRows(filePath).forEach((row) => {
+    const code = normalizeCode(getValue(row, "cd_municipio_6d"));
+    const name = getValue(row, "nm_vice_presidencia");
+    if (code && name) byCode.set(code, name);
+  });
+
+  return byCode;
+}
+
+function readMunicipios(filePath, vicePresidencyByCode) {
+  return readRows(filePath, { cellDates: true }).map((row) => {
     const date = parseDate(getValue(row, "Data de Referência"));
-    const code = String(getValue(row, "Cód. Munic") ?? "").replace(/\D/g, "");
-    const municipio = getValue(row, "Município");
-    const mesoregion = MESOREGION_OVERRIDES_BY_CODE.get(code) ?? getValue(row, "Mesorregião");
+    const rawMunicipio = getValue(row, "Município");
+    const isStateTotal = rawMunicipio === "-";
+    const code = isStateTotal ? "" : normalizeCode(getValue(row, "Cód. Munic"));
+    const vicePresidency = isStateTotal ? "Santa Catarina" : vicePresidencyByCode.get(code);
+
+    if (!isStateTotal && !vicePresidency) {
+      throw new Error(`Município sem vice-presidência na dimensão: código ${code}, nome ${rawMunicipio}`);
+    }
 
     return {
       date,
       year: Number(date.slice(0, 4)),
       code,
-      municipio: municipio === "-" ? "Santa Catarina" : municipio,
-      isStateTotal: municipio === "-",
-      mesoregion,
-      vp: getValue(row, "VPs"),
+      municipio: isStateTotal ? "Santa Catarina" : rawMunicipio,
+      isStateTotal,
+      vicePresidency,
       type: getValue(row, "Tipo PIB"),
       pib: Number(getValue(row, "PIB") ?? 0)
     };
   });
 }
 
-function aggregateMesosFromMunicipios(municipios) {
+function aggregateVicePresidenciesFromMunicipios(municipios) {
   const grouped = new Map();
 
   municipios
     .filter((row) => !row.isStateTotal)
     .forEach((row) => {
-      const key = `${row.mesoregion}|${row.year}`;
+      const key = `${row.vicePresidency}|${row.year}`;
       const current = grouped.get(key) ?? {
         date: row.date,
         year: row.year,
-        mesoregion: row.mesoregion,
+        vicePresidency: row.vicePresidency,
         type: row.type,
         pib: 0
       };
@@ -94,25 +108,8 @@ function aggregateMesosFromMunicipios(municipios) {
     });
 
   return [...grouped.values()].sort(
-    (a, b) => String(a.mesoregion).localeCompare(String(b.mesoregion), "pt-BR") || a.year - b.year
+    (a, b) => String(a.vicePresidency).localeCompare(String(b.vicePresidency), "pt-BR") || a.year - b.year
   );
-}
-
-function readMesos(filePath) {
-  const workbook = xlsx.readFile(filePath, { cellDates: true });
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-
-  return xlsx.utils.sheet_to_json(firstSheet, { defval: null }).map((row) => {
-    const date = parseDate(getValue(row, "Data de Referência"));
-
-    return {
-      date,
-      year: Number(date.slice(0, 4)),
-      mesoregion: getValue(row, "Mesos"),
-      type: getValue(row, "Tipo PIB"),
-      pib: Number(getValue(row, "PIB") ?? 0)
-    };
-  });
 }
 
 function uniqueSorted(rows, key) {
@@ -123,44 +120,46 @@ function uniqueSorted(rows, key) {
 
 function indexByUnitYear(rows, unitKey) {
   const map = new Map();
-  rows.forEach((row) => {
-    map.set(`${row[unitKey]}|${row.year}`, row);
-  });
+  rows.forEach((row) => map.set(`${row[unitKey]}|${row.year}`, row));
   return map;
 }
 
 function addProjectionMetrics(rows, unitKey) {
   const byUnitYear = indexByUnitYear(rows, unitKey);
   const units = uniqueSorted(rows, unitKey);
+  const finalYear = Math.max(...rows.map((row) => row.year));
 
-  const summary = units.map((unit) => {
-    const base = byUnitYear.get(`${unit}|${MAX_OBSERVED_YEAR}`);
-    const final = byUnitYear.get(`${unit}|${Math.max(...rows.map((row) => row.year))}`);
+  return {
+    summary: units.map((unit) => {
+      const base = byUnitYear.get(`${unit}|${MAX_OBSERVED_YEAR}`);
+      const final = byUnitYear.get(`${unit}|${finalYear}`);
+      const cagr =
+        base && final && final.year > base.year ? (final.pib / base.pib) ** (1 / (final.year - base.year)) - 1 : null;
 
-    const cagr =
-      base && final && final.year > base.year ? (final.pib / base.pib) ** (1 / (final.year - base.year)) - 1 : null;
-
-    return {
-      unit,
-      baseYear: base?.year ?? null,
-      finalYear: final?.year ?? null,
-      basePib: base?.pib ?? null,
-      finalPib: final?.pib ?? null,
-      cagr,
-      cagrPercent: cagr === null ? null : cagr * 100
-    };
-  });
-
-  return { summary };
+      return {
+        unit,
+        baseYear: base?.year ?? null,
+        finalYear: final?.year ?? null,
+        basePib: base?.pib ?? null,
+        finalPib: final?.pib ?? null,
+        cagr,
+        cagrPercent: cagr === null ? null : cagr * 100
+      };
+    })
+  };
 }
 
 async function downloadJson(url) {
   const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Erro ao baixar ${url}: ${response.status} ${response.statusText}`);
-  }
-
+  if (!response.ok) throw new Error(`Erro ao baixar ${url}: ${response.status} ${response.statusText}`);
   return response.json();
+}
+
+async function loadMunicipalityGeometry() {
+  if (fs.existsSync(files.geoMunicipios)) {
+    return JSON.parse(fs.readFileSync(files.geoMunicipios, "utf8"));
+  }
+  return downloadJson(IBGE_SC_MUNICIPIOS_URL);
 }
 
 function buildMunicipalityGeoJson(geoJson, municipios) {
@@ -174,13 +173,9 @@ function buildMunicipalityGeoJson(geoJson, municipios) {
     type: "FeatureCollection",
     features: geoJson.features
       .map((feature) => {
-        const code7 = String(feature.properties.codarea);
-        const code = code7.slice(0, 6);
+        const code = normalizeCode(feature.properties.code ?? feature.properties.codarea);
         const metadata = metadataByCode.get(code);
-
-        if (!metadata) {
-          return null;
-        }
+        if (!metadata) return null;
 
         return {
           ...feature,
@@ -189,8 +184,7 @@ function buildMunicipalityGeoJson(geoJson, municipios) {
             id: code,
             name: metadata.municipio,
             code,
-            mesoregion: metadata.mesoregion,
-            vp: metadata.vp
+            vicePresidency: metadata.vicePresidency
           }
         };
       })
@@ -198,40 +192,32 @@ function buildMunicipalityGeoJson(geoJson, municipios) {
   };
 }
 
-function buildMesoGeoJson(municipalityGeoJson) {
-  const dissolved = dissolve(municipalityGeoJson, { propertyName: "mesoregion" });
-  const byMeso = new Map();
+function buildVicePresidencyGeoJson(municipalityGeoJson) {
+  const dissolved = dissolve(municipalityGeoJson, { propertyName: "vicePresidency" });
+  const byVicePresidency = new Map();
 
   dissolved.features.forEach((feature) => {
-    const mesoregion = feature.properties.mesoregion;
+    const vicePresidency = feature.properties.vicePresidency;
     const polygons =
       feature.geometry.type === "Polygon" ? [feature.geometry.coordinates] : feature.geometry.coordinates;
 
-    if (!byMeso.has(mesoregion)) {
-      byMeso.set(mesoregion, []);
-    }
-
-    byMeso.get(mesoregion).push(...polygons);
+    if (!byVicePresidency.has(vicePresidency)) byVicePresidency.set(vicePresidency, []);
+    byVicePresidency.get(vicePresidency).push(...polygons);
   });
 
   return {
     type: "FeatureCollection",
-    features: [...byMeso.entries()].map(([mesoregion, coordinates]) => ({
+    features: [...byVicePresidency.entries()].map(([vicePresidency, coordinates]) => ({
       type: "Feature",
-      properties: {
-        mesoregion,
-        name: mesoregion
-      },
-      geometry: {
-        type: "MultiPolygon",
-        coordinates
-      }
+      properties: { vicePresidency, name: vicePresidency },
+      geometry: { type: "MultiPolygon", coordinates }
     }))
   };
 }
 
-function buildMetadata(municipios, mesos) {
-  const years = [...new Set([...municipios, ...mesos].map((row) => row.year))].sort((a, b) => a - b);
+function buildMetadata(municipios, vicePresidencies) {
+  const years = [...new Set([...municipios, ...vicePresidencies].map((row) => row.year))].sort((a, b) => a - b);
+
   return {
     generatedAt: new Date().toISOString(),
     years,
@@ -243,44 +229,44 @@ function buildMetadata(municipios, mesos) {
       municipios.filter((row) => !row.isStateTotal),
       "municipio"
     ),
-    mesoregions: uniqueSorted(municipios, "mesoregion").filter((value) => value !== "-"),
-    vps: uniqueSorted(municipios, "vp").filter((value) => value !== "-")
+    vicePresidencies: uniqueSorted(municipios, "vicePresidency").filter((value) => value !== "Santa Catarina")
   };
 }
 
 fs.mkdirSync(outputDir, { recursive: true });
 
-const municipios = readMunicipios(files.municipios);
-const mesos = aggregateMesosFromMunicipios(municipios);
+const vicePresidencyByCode = readMunicipalityVicePresidencies(files.municipalityVicePresidency);
+const municipios = readMunicipios(files.municipios, vicePresidencyByCode);
+const vicePresidencies = aggregateVicePresidenciesFromMunicipios(municipios);
 const scByYear = new Map(municipios.filter((row) => row.isStateTotal).map((row) => [row.year, row]));
 
 const municipalityMetrics = addProjectionMetrics(
   municipios.filter((row) => !row.isStateTotal),
   "municipio"
 );
-const mesoregionMetrics = addProjectionMetrics(mesos, "mesoregion");
+const vicePresidencyMetrics = addProjectionMetrics(vicePresidencies, "vicePresidency");
 
-const rawMunicipalityGeoJson = await downloadJson(IBGE_SC_MUNICIPIOS_URL);
+const rawMunicipalityGeoJson = await loadMunicipalityGeometry();
 const municipalityGeoJson = buildMunicipalityGeoJson(rawMunicipalityGeoJson, municipios);
-const mesoGeoJson = buildMesoGeoJson(municipalityGeoJson);
+const vicePresidencyGeoJson = buildVicePresidencyGeoJson(municipalityGeoJson);
 
 const payload = {
-  metadata: buildMetadata(municipios, mesos),
+  metadata: buildMetadata(municipios, vicePresidencies),
   municipios,
-  mesos,
+  vicePresidencies,
   sc: [...scByYear.values()].sort((a, b) => a.year - b.year),
   metrics: {
     municipios: municipalityMetrics,
-    mesoregions: mesoregionMetrics
+    vicePresidencies: vicePresidencyMetrics
   }
 };
 
 fs.writeFileSync(files.pib, JSON.stringify(payload));
 fs.writeFileSync(files.geoMunicipios, JSON.stringify(municipalityGeoJson));
-fs.writeFileSync(files.geoMesos, JSON.stringify(mesoGeoJson));
+fs.writeFileSync(files.geoVicePresidencies, JSON.stringify(vicePresidencyGeoJson));
 
 console.log(`Arquivo salvo: ${files.pib}`);
-console.log(`GeoJSON municipios: ${files.geoMunicipios}`);
-console.log(`GeoJSON mesorregioes: ${files.geoMesos}`);
-console.log(`Municipios: ${municipios.length} registros`);
-console.log(`Mesos: ${mesos.length} registros`);
+console.log(`GeoJSON municípios: ${files.geoMunicipios}`);
+console.log(`GeoJSON vice-presidências: ${files.geoVicePresidencies}`);
+console.log(`Municípios: ${municipios.length} registros`);
+console.log(`Vice-presidências: ${vicePresidencies.length} registros`);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import EChart from "../../../components/EChart";
 import Card from "../ui/Card";
-import type { MesoregionData, MunicipalityData, SelectedLevel, StateData, YearValue } from "../../types/economic-dashboard";
+import type { MunicipalityData, SelectedLevel, StateData, VicePresidencyData, YearValue } from "../../types/economic-dashboard";
 import { calculateCAGR } from "../../lib/economic-calculations";
 import { formatPercent } from "../../lib/formatters";
 
@@ -12,7 +12,7 @@ type Mode = "growth" | "cagr" | "base";
 type Props = {
   level: SelectedLevel;
   state: StateData;
-  mesoregion?: MesoregionData;
+  vicePresidency?: VicePresidencyData;
   municipality?: MunicipalityData;
 };
 
@@ -31,17 +31,17 @@ function cagrPeriodLabels(years: number[]) {
   return years.slice(1).map((year) => `${baseYear}-${String(year).slice(-2)}`);
 }
 
-export default function GrowthAndCagrChart({ level, state, mesoregion, municipality }: Props) {
+export default function GrowthAndCagrChart({ level, state, vicePresidency, municipality }: Props) {
   const [mode, setMode] = useState<Mode>("growth");
   const primary =
     level === "municipality" && municipality
       ? { label: municipality.name, series: municipality.pibSeries, cagr: municipality.cagr2023_2030 }
-      : level === "mesoregion" && mesoregion
-        ? { label: mesoregion.name, series: mesoregion.pibSeries, cagr: mesoregion.cagr2023_2030 }
+      : level === "vice-presidency" && vicePresidency
+        ? { label: vicePresidency.name, series: vicePresidency.pibSeries, cagr: vicePresidency.cagr2023_2030 }
         : { label: "Santa Catarina", series: state.pibSeries, cagr: state.cagr2023_2030 };
   const peers = [
     primary,
-    ...(level === "municipality" && mesoregion ? [{ label: mesoregion.name, series: mesoregion.pibSeries, cagr: mesoregion.cagr2023_2030 }] : []),
+    ...(level === "municipality" && vicePresidency ? [{ label: vicePresidency.name, series: vicePresidency.pibSeries, cagr: vicePresidency.cagr2023_2030 }] : []),
     ...(level !== "state" ? [{ label: "Santa Catarina", series: state.pibSeries, cagr: state.cagr2023_2030 }] : [])
   ];
 

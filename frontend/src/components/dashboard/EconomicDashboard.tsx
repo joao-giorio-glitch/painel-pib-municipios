@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import Header from "./Header";
@@ -12,33 +12,33 @@ import { buildDashboardDataset } from "../../lib/build-dashboard-dataset";
 
 export default function EconomicDashboard({ data }: { data: any }) {
   const dataset = useMemo(() => buildDashboardDataset(data), [data]);
-  const { state, mesoregions, municipalities } = dataset;
+  const { state, vicePresidencies, municipalities } = dataset;
   const [selectedYear, setSelectedYear] = useState(2023);
   const [selectedLevel, setSelectedLevel] = useState<SelectedLevel>("state");
-  const [selectedMesoregionId, setSelectedMesoregionId] = useState<string | undefined>();
+  const [selectedVicePresidencyId, setSelectedVicePresidencyId] = useState<string | undefined>();
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string | undefined>();
 
-  const selectedMesoregion = useMemo(
-    () => mesoregions.find((item) => item.id === selectedMesoregionId),
-    [selectedMesoregionId]
+  const selectedVicePresidency = useMemo(
+    () => vicePresidencies.find((item) => item.id === selectedVicePresidencyId),
+    [selectedVicePresidencyId, vicePresidencies]
   );
   const selectedMunicipality = useMemo(
     () => municipalities.find((item) => item.id === selectedMunicipalityId),
-    [selectedMunicipalityId]
+    [selectedMunicipalityId, municipalities]
   );
 
-  function selectMesoregion(name: string) {
-    const mesoregion = mesoregions.find((item) => item.name === name);
-    if (!mesoregion) return;
-    setSelectedMesoregionId(mesoregion.id);
+  function selectVicePresidency(name: string) {
+    const vicePresidency = vicePresidencies.find((item) => item.name === name);
+    if (!vicePresidency) return;
+    setSelectedVicePresidencyId(vicePresidency.id);
     setSelectedMunicipalityId(undefined);
-    setSelectedLevel("mesoregion");
+    setSelectedLevel("vice-presidency");
   }
 
   function selectMunicipality(name: string) {
     const municipality = municipalities.find((item) => item.name === name);
     if (!municipality) return;
-    setSelectedMesoregionId(municipality.mesoregionId);
+    setSelectedVicePresidencyId(municipality.vicePresidencyId);
     setSelectedMunicipalityId(municipality.id);
     setSelectedLevel("municipality");
   }
@@ -46,21 +46,21 @@ export default function EconomicDashboard({ data }: { data: any }) {
   function goBack() {
     if (selectedLevel === "municipality") {
       setSelectedMunicipalityId(undefined);
-      setSelectedLevel("mesoregion");
+      setSelectedLevel("vice-presidency");
       return;
     }
     setSelectedMunicipalityId(undefined);
-    setSelectedMesoregionId(undefined);
+    setSelectedVicePresidencyId(undefined);
     setSelectedLevel("state");
   }
 
   function goToLevel(level: SelectedLevel) {
     if (level === "state") {
       setSelectedLevel("state");
-      setSelectedMesoregionId(undefined);
+      setSelectedVicePresidencyId(undefined);
       setSelectedMunicipalityId(undefined);
-    } else if (level === "mesoregion" && selectedMesoregionId) {
-      setSelectedLevel("mesoregion");
+    } else if (level === "vice-presidency" && selectedVicePresidencyId) {
+      setSelectedLevel("vice-presidency");
       setSelectedMunicipalityId(undefined);
     }
   }
@@ -69,7 +69,7 @@ export default function EconomicDashboard({ data }: { data: any }) {
     <main className="economic-dashboard">
       <Header
         selectedLevel={selectedLevel}
-        selectedMesoregion={selectedMesoregion?.name}
+        selectedVicePresidency={selectedVicePresidency?.name}
         selectedMunicipality={selectedMunicipality?.name}
         onBreadcrumbClick={goToLevel}
         onBack={goBack}
@@ -79,13 +79,13 @@ export default function EconomicDashboard({ data }: { data: any }) {
         <MapPanel
           level={selectedLevel}
           selectedYear={selectedYear}
-          selectedMesoregion={selectedMesoregion}
+          selectedVicePresidency={selectedVicePresidency}
           selectedMunicipality={selectedMunicipality}
           state={state}
-          mesoregions={mesoregions}
+          vicePresidencies={vicePresidencies}
           municipalities={municipalities}
           onYearChange={setSelectedYear}
-          onMesoregionClick={selectMesoregion}
+          onVicePresidencyClick={selectVicePresidency}
           onMunicipalityClick={selectMunicipality}
         />
 
@@ -94,19 +94,19 @@ export default function EconomicDashboard({ data }: { data: any }) {
             level={selectedLevel}
             selectedYear={selectedYear}
             state={state}
-            mesoregion={selectedMesoregion}
+            vicePresidency={selectedVicePresidency}
             municipality={selectedMunicipality}
-            mesoregions={mesoregions}
+            vicePresidencies={vicePresidencies}
             municipalities={municipalities}
           />
-          <PibEvolutionChart level={selectedLevel} state={state} mesoregion={selectedMesoregion} municipality={selectedMunicipality} />
-          <GrowthAndCagrChart level={selectedLevel} state={state} mesoregion={selectedMesoregion} municipality={selectedMunicipality} />
+          <PibEvolutionChart level={selectedLevel} state={state} vicePresidency={selectedVicePresidency} municipality={selectedMunicipality} />
+          <GrowthAndCagrChart level={selectedLevel} state={state} vicePresidency={selectedVicePresidency} municipality={selectedMunicipality} />
           <ContributionToGrowthChart
             level={selectedLevel}
             state={state}
-            selectedMesoregion={selectedMesoregion}
+            selectedVicePresidency={selectedVicePresidency}
             selectedMunicipality={selectedMunicipality}
-            mesoregions={mesoregions}
+            vicePresidencies={vicePresidencies}
             municipalities={municipalities}
           />
         </aside>

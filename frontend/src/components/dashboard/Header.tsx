@@ -4,7 +4,7 @@ import type { SelectedLevel } from "../../types/economic-dashboard";
 
 type Props = {
   selectedLevel: SelectedLevel;
-  selectedMesoregion?: string;
+  selectedVicePresidency?: string;
   selectedMunicipality?: string;
   onBreadcrumbClick: (level: SelectedLevel) => void;
   onBack: () => void;
@@ -12,7 +12,7 @@ type Props = {
 
 export default function Header({
   selectedLevel,
-  selectedMesoregion,
+  selectedVicePresidency,
   selectedMunicipality,
   onBreadcrumbClick,
   onBack
@@ -22,16 +22,16 @@ export default function Header({
       <div className="economic-title-block">
         <p>Santa Catarina</p>
         <h1>Projeções do PIB Municipal de Santa Catarina</h1>
-        <span>Painel top-down: Estado → Mesorregião → Município</span>
+        <span>Painel top-down: Estado → Vice-presidência → Município</span>
       </div>
 
       <div className="economic-toolbar">
         <nav className="breadcrumb" aria-label="Navegação territorial">
           <button onClick={() => onBreadcrumbClick("state")}>Santa Catarina</button>
-          {selectedMesoregion ? (
+          {selectedVicePresidency ? (
             <>
               <span>/</span>
-              <button onClick={() => onBreadcrumbClick("mesoregion")}>{selectedMesoregion}</button>
+              <button onClick={() => onBreadcrumbClick("vice-presidency")}>{selectedVicePresidency}</button>
             </>
           ) : null}
           {selectedMunicipality ? (

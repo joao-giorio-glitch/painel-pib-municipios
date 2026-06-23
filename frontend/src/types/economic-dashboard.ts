@@ -1,4 +1,4 @@
-export type SelectedLevel = "state" | "mesoregion" | "municipality";
+export type SelectedLevel = "state" | "vice-presidency" | "municipality";
 export type SelectedMetric = "pib" | "share" | "growth";
 
 export type YearValue = {
@@ -8,7 +8,7 @@ export type YearValue = {
   isProjected: boolean;
 };
 
-export type MesoregionData = {
+export type VicePresidencyData = {
   id: string;
   name: string;
   pibSeries: YearValue[];
@@ -19,10 +19,10 @@ export type MesoregionData = {
 export type MunicipalityData = {
   id: string;
   name: string;
-  mesoregionId: string;
+  vicePresidencyId: string;
   pibSeries: YearValue[];
   cagr2023_2030: number;
-  mesoregionShareByYear: Record<number, number>;
+  vicePresidencyShareByYear: Record<number, number>;
   stateShareByYear: Record<number, number>;
 };
 

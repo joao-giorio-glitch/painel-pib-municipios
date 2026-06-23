@@ -1,24 +1,24 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import * as echarts from "echarts";
 import EChart from "../../../components/EChart";
-import type { MesoregionData, MunicipalityData, SelectedLevel, StateData, YearValue } from "../../types/economic-dashboard";
+import type { MunicipalityData, SelectedLevel, StateData, VicePresidencyData, YearValue } from "../../types/economic-dashboard";
 import { formatCurrencyBRL, formatPercent } from "../../lib/formatters";
 import { geoJsonSources } from "../../data/geojson-placeholders";
 
-type RankingMode = "map" | "mesoregion-ranking" | "municipality-ranking";
+type RankingMode = "map" | "vice-presidency-ranking" | "municipality-ranking";
 
 type Props = {
   level: SelectedLevel;
   selectedYear: number;
-  selectedMesoregion?: MesoregionData;
+  selectedVicePresidency?: VicePresidencyData;
   selectedMunicipality?: MunicipalityData;
   state: StateData;
-  mesoregions: MesoregionData[];
+  vicePresidencies: VicePresidencyData[];
   municipalities: MunicipalityData[];
   onYearChange: (year: number) => void;
-  onMesoregionClick: (name: string) => void;
+  onVicePresidencyClick: (name: string) => void;
   onMunicipalityClick: (name: string) => void;
 };
 
@@ -131,16 +131,16 @@ function buildRankingOption({
 export default function MapPanel({
   level,
   selectedYear,
-  selectedMesoregion,
+  selectedVicePresidency,
   selectedMunicipality,
   state,
-  mesoregions,
+  vicePresidencies,
   municipalities,
   onYearChange,
-  onMesoregionClick,
+  onVicePresidencyClick,
   onMunicipalityClick
 }: Props) {
-  const [mapState, setMapState] = useState<{ name: string; ready: boolean }>({ name: "sc-mesorregioes", ready: false });
+  const [mapState, setMapState] = useState<{ name: string; ready: boolean }>({ name: "sc-vice-presidencias", ready: false });
   const [viewMode, setViewMode] = useState<RankingMode>("map");
   const [rankingAutoPlay, setRankingAutoPlay] = useState(false);
   const [municipalitySearch, setMunicipalitySearch] = useState("");
@@ -149,30 +149,30 @@ export default function MapPanel({
     setViewMode("map");
     setRankingAutoPlay(false);
     setMunicipalitySearch("");
-  }, [level, selectedMesoregion?.id]);
+  }, [level, selectedVicePresidency?.id]);
 
   useEffect(() => {
-    const source = level === "state" ? geoJsonSources.mesoregions : geoJsonSources.municipalities;
+    const source = level === "state" ? geoJsonSources.vicePresidencies : geoJsonSources.municipalities;
     fetch(source)
       .then((response) => response.json())
       .then((geoJson) => {
         const filtered =
-          level === "state" || !selectedMesoregion
+          level === "state" || !selectedVicePresidency
             ? geoJson
             : {
                 ...geoJson,
-                features: geoJson.features.filter((feature: any) => feature.properties.mesoregion === selectedMesoregion.name)
+                features: geoJson.features.filter(
+                  (feature: any) => feature.properties.vicePresidency === selectedVicePresidency.name
+                )
               };
-        const name = level === "state" ? "sc-mesorregioes" : `municipios-${selectedMesoregion?.id ?? "sc"}`;
+        const name = level === "state" ? "sc-vice-presidencias" : `municipios-${selectedVicePresidency?.id ?? "sc"}`;
         echarts.registerMap(name, filtered);
         setMapState({ name, ready: true });
       });
-  }, [level, selectedMesoregion]);
+  }, [level, selectedVicePresidency]);
 
   useEffect(() => {
-    if (!rankingAutoPlay) {
-      return undefined;
-    }
+    if (!rankingAutoPlay) return undefined;
 
     const interval = window.setInterval(() => {
       if (selectedYear >= 2030) {
@@ -189,7 +189,7 @@ export default function MapPanel({
   const years = state.pibSeries.map((row) => row.year).filter((year) => year >= 2023 && year <= 2030);
   const rows = useMemo(() => {
     if (level === "state") {
-      return mesoregions.map((item) => {
+      return vicePresidencies.map((item) => {
         const row = item.pibSeries.find((entry) => entry.year === selectedYear)!;
         return {
           name: item.name,
@@ -202,7 +202,7 @@ export default function MapPanel({
       });
     }
 
-    const scope = municipalities.filter((item) => item.mesoregionId === selectedMesoregion?.id);
+    const scope = municipalities.filter((item) => item.vicePresidencyId === selectedVicePresidency?.id);
     return scope.map((item) => {
       const row = item.pibSeries.find((entry) => entry.year === selectedYear)!;
       return {
@@ -210,12 +210,12 @@ export default function MapPanel({
         selected: item.id === selectedMunicipality?.id,
         value: row.growth,
         pib: row.pib,
-        share: item.mesoregionShareByYear[selectedYear],
+        share: item.vicePresidencyShareByYear[selectedYear],
         growth: row.growth,
         cagr: item.cagr2023_2030
       };
     });
-  }, [level, mesoregions, municipalities, selectedMesoregion, selectedMunicipality, selectedYear]);
+  }, [level, municipalities, selectedMunicipality, selectedVicePresidency, selectedYear, vicePresidencies]);
 
   const values = rows.map((row) => row.value).filter(Number.isFinite);
   const mapOption = {
@@ -262,10 +262,10 @@ export default function MapPanel({
   };
 
   const rankingRows =
-    viewMode === "mesoregion-ranking"
-      ? mesoregions.map((item) => ({ name: item.name, series: item.pibSeries }))
+    viewMode === "vice-presidency-ranking"
+      ? vicePresidencies.map((item) => ({ name: item.name, series: item.pibSeries }))
       : municipalities
-          .filter((item) => level === "state" || item.mesoregionId === selectedMesoregion?.id)
+          .filter((item) => level === "state" || item.vicePresidencyId === selectedVicePresidency?.id)
           .filter((item) => {
             const search = normalizeSearch(municipalitySearch.trim());
             return !search || normalizeSearch(item.name).includes(search);
@@ -279,33 +279,33 @@ export default function MapPanel({
           selectedYear,
           visibleCount: viewMode === "municipality-ranking" ? 25 : 12,
           title:
-            viewMode === "mesoregion-ranking"
-              ? "PIB das mesorregiões por ano"
+            viewMode === "vice-presidency-ranking"
+              ? "PIB das vice-presidências por ano"
               : level === "state"
                 ? "PIB dos municípios de Santa Catarina por ano"
-                : `PIB dos municípios de ${selectedMesoregion?.name ?? ""} por ano`
+                : `PIB dos municípios de ${selectedVicePresidency?.name ?? ""} por ano`
         });
 
   const mapEvents = useMemo(
     () => ({
       click: (params: any) => {
         if (!params.name) return;
-        if (level === "state") onMesoregionClick(params.name);
+        if (level === "state") onVicePresidencyClick(params.name);
         else onMunicipalityClick(params.name);
       }
     }),
-    [level, onMesoregionClick, onMunicipalityClick]
+    [level, onMunicipalityClick, onVicePresidencyClick]
   );
 
   const rankingEvents = useMemo(
     () => ({
       click: (params: any) => {
         if (!params.name) return;
-        if (viewMode === "mesoregion-ranking") onMesoregionClick(params.name);
+        if (viewMode === "vice-presidency-ranking") onVicePresidencyClick(params.name);
         else onMunicipalityClick(params.name);
       }
     }),
-    [onMesoregionClick, onMunicipalityClick, viewMode]
+    [onMunicipalityClick, onVicePresidencyClick, viewMode]
   );
 
   return (
@@ -316,10 +316,10 @@ export default function MapPanel({
             <h2>
               {viewMode === "map"
                 ? level === "state"
-                  ? "Mapa por mesorregiões"
-                  : `Municípios de ${selectedMesoregion?.name}`
-                : viewMode === "mesoregion-ranking"
-                  ? "Ranking mesorregional"
+                  ? "Mapa por vice-presidência"
+                  : `Municípios de ${selectedVicePresidency?.name}`
+                : viewMode === "vice-presidency-ranking"
+                  ? "Ranking de vice-presidências"
                   : "Ranking municipal"}
             </h2>
             {viewMode === "map" ? (
@@ -343,15 +343,15 @@ export default function MapPanel({
             </button>
             {level === "state" ? (
               <button
-                className={viewMode === "mesoregion-ranking" ? "active" : ""}
+                className={viewMode === "vice-presidency-ranking" ? "active" : ""}
                 onClick={() => {
                   onYearChange(2023);
                   setRankingAutoPlay(true);
                   setMunicipalitySearch("");
-                  setViewMode("mesoregion-ranking");
+                  setViewMode("vice-presidency-ranking");
                 }}
               >
-                Ranking mesorregional
+                Ranking de vice-presidências
               </button>
             ) : null}
             <button

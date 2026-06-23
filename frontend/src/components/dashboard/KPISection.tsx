@@ -1,14 +1,14 @@
-﻿import Card from "../ui/Card";
-import type { MesoregionData, MunicipalityData, SelectedLevel, StateData } from "../../types/economic-dashboard";
+import Card from "../ui/Card";
+import type { MunicipalityData, SelectedLevel, StateData, VicePresidencyData } from "../../types/economic-dashboard";
 import { formatCurrencyBRL, formatPercent } from "../../lib/formatters";
 
 type Props = {
   level: SelectedLevel;
   selectedYear: number;
   state: StateData;
-  mesoregion?: MesoregionData;
+  vicePresidency?: VicePresidencyData;
   municipality?: MunicipalityData;
-  mesoregions: MesoregionData[];
+  vicePresidencies: VicePresidencyData[];
   municipalities: MunicipalityData[];
 };
 
@@ -30,27 +30,36 @@ function formatOrdinal(value: number) {
   return value > 0 ? `${value}º` : "-";
 }
 
-export default function KPISection({ level, selectedYear, state, mesoregion, municipality, mesoregions, municipalities }: Props) {
+export default function KPISection({
+  level,
+  selectedYear,
+  state,
+  vicePresidency,
+  municipality,
+  vicePresidencies,
+  municipalities
+}: Props) {
   const stateRow = rowForYear(state.pibSeries, selectedYear);
-  const activeMeso = mesoregion ?? mesoregions[0];
-  const activeMunicipality = municipality ?? municipalities.find((item) => item.mesoregionId === activeMeso.id) ?? municipalities[0];
-  const mesoRow = rowForYear(activeMeso.pibSeries, selectedYear);
-  const muniRow = rowForYear(activeMunicipality.pibSeries, selectedYear);
+  const activeVicePresidency = vicePresidency ?? vicePresidencies[0];
+  const activeMunicipality =
+    municipality ?? municipalities.find((item) => item.vicePresidencyId === activeVicePresidency.id) ?? municipalities[0];
+  const vicePresidencyRow = rowForYear(activeVicePresidency.pibSeries, selectedYear);
+  const municipalityRow = rowForYear(activeMunicipality.pibSeries, selectedYear);
 
-  const largestMeso = [...mesoregions].sort(
+  const largestVicePresidency = [...vicePresidencies].sort(
     (a, b) => (b.stateShareByYear[selectedYear] ?? 0) - (a.stateShareByYear[selectedYear] ?? 0)
   )[0];
-  const fastestMeso = [...mesoregions].sort(
+  const fastestVicePresidency = [...vicePresidencies].sort(
     (a, b) => rowForYear(b.pibSeries, selectedYear).growth - rowForYear(a.pibSeries, selectedYear).growth
   )[0];
-  const regionalMunicipalities = municipalities.filter((item) => item.mesoregionId === activeMeso.id);
-  const largestMunicipality = [...regionalMunicipalities].sort(
-    (a, b) => (b.mesoregionShareByYear[selectedYear] ?? 0) - (a.mesoregionShareByYear[selectedYear] ?? 0)
+  const vicePresidencyMunicipalities = municipalities.filter((item) => item.vicePresidencyId === activeVicePresidency.id);
+  const largestMunicipality = [...vicePresidencyMunicipalities].sort(
+    (a, b) => (b.vicePresidencyShareByYear[selectedYear] ?? 0) - (a.vicePresidencyShareByYear[selectedYear] ?? 0)
   )[0];
-  const regionalRank = rankByShare(
-    regionalMunicipalities,
+  const vicePresidencyRank = rankByShare(
+    vicePresidencyMunicipalities,
     activeMunicipality.id,
-    (item) => item.mesoregionShareByYear[selectedYear] ?? 0
+    (item) => item.vicePresidencyShareByYear[selectedYear] ?? 0
   );
   const stateRank = rankByShare(municipalities, activeMunicipality.id, (item) => item.stateShareByYear[selectedYear] ?? 0);
 
@@ -60,24 +69,24 @@ export default function KPISection({ level, selectedYear, state, mesoregion, mun
           { label: "PIB de SC", value: formatCurrencyBRL(stateRow.pib) },
           { label: "Crescimento anual", value: formatPercent(stateRow.growth), tooltip: "Variação do PIB em relação ao ano anterior." },
           { label: "CAGR 2023-2030", value: formatPercent(state.cagr2023_2030), tooltip: "Taxa anual composta entre 2023 e 2030." },
-          { label: "Maior participação", value: largestMeso.name },
-          { label: "Maior crescimento", value: fastestMeso.name }
+          { label: "Maior participação", value: largestVicePresidency.name },
+          { label: "Maior crescimento", value: fastestVicePresidency.name }
         ]
-      : level === "mesoregion"
+      : level === "vice-presidency"
         ? [
-            { label: "PIB da mesorregião", value: formatCurrencyBRL(mesoRow.pib) },
-            { label: "Participação em SC", value: formatPercent(activeMeso.stateShareByYear[selectedYear]) },
-            { label: "Crescimento anual", value: formatPercent(mesoRow.growth), tooltip: "Variação do PIB da mesorregião em relação ao ano anterior." },
-            { label: "CAGR 2023-2030", value: formatPercent(activeMeso.cagr2023_2030), tooltip: "Taxa anual composta entre 2023 e 2030." },
+            { label: "PIB da vice-presidência", value: formatCurrencyBRL(vicePresidencyRow.pib) },
+            { label: "Participação em SC", value: formatPercent(activeVicePresidency.stateShareByYear[selectedYear]) },
+            { label: "Crescimento anual", value: formatPercent(vicePresidencyRow.growth), tooltip: "Variação do PIB da vice-presidência em relação ao ano anterior." },
+            { label: "CAGR 2023-2030", value: formatPercent(activeVicePresidency.cagr2023_2030), tooltip: "Taxa anual composta entre 2023 e 2030." },
             { label: "Município líder", value: largestMunicipality?.name ?? "-" }
           ]
         : [
-            { label: "PIB do município", value: formatCurrencyBRL(muniRow.pib) },
-            { label: "Part. na mesorregião", value: formatPercent(activeMunicipality.mesoregionShareByYear[selectedYear]) },
+            { label: "PIB do município", value: formatCurrencyBRL(municipalityRow.pib) },
+            { label: "Part. na vice-presidência", value: formatPercent(activeMunicipality.vicePresidencyShareByYear[selectedYear]) },
             { label: "Part. em SC", value: formatPercent(activeMunicipality.stateShareByYear[selectedYear]) },
-            { label: "Ranking regional", value: formatOrdinal(regionalRank), tooltip: "Posição do município no PIB da mesorregião no ano selecionado." },
+            { label: "Ranking na vice-presidência", value: formatOrdinal(vicePresidencyRank), tooltip: "Posição do município no PIB da vice-presidência no ano selecionado." },
             { label: "Ranking estadual", value: formatOrdinal(stateRank), tooltip: "Posição do município no PIB de Santa Catarina no ano selecionado." },
-            { label: "Crescimento anual", value: formatPercent(muniRow.growth), tooltip: "Variação do PIB municipal em relação ao ano anterior." },
+            { label: "Crescimento anual", value: formatPercent(municipalityRow.growth), tooltip: "Variação do PIB municipal em relação ao ano anterior." },
             { label: "CAGR 2023-2030", value: formatPercent(activeMunicipality.cagr2023_2030), tooltip: "Taxa anual composta entre 2023 e 2030." }
           ];
 

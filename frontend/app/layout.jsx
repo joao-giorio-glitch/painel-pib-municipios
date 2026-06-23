@@ -2,7 +2,7 @@ import "./globals.css";
 
 export const metadata = {
   title: "Painel PIB Municípios",
-  description: "Painel interativo para visualização do PIB municipal e por mesorregião."
+  description: "Painel interativo para visualização do PIB municipal e por vice-presidência."
 };
 
 export default function RootLayout({ children }) {

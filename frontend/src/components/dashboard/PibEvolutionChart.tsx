@@ -2,22 +2,22 @@
 
 import EChart from "../../../components/EChart";
 import Card from "../ui/Card";
-import type { MesoregionData, MunicipalityData, SelectedLevel, StateData } from "../../types/economic-dashboard";
+import type { MunicipalityData, SelectedLevel, StateData, VicePresidencyData } from "../../types/economic-dashboard";
 import { formatCurrencyBRL, formatPercent } from "../../lib/formatters";
 
 type Props = {
   level: SelectedLevel;
   state: StateData;
-  mesoregion?: MesoregionData;
+  vicePresidency?: VicePresidencyData;
   municipality?: MunicipalityData;
 };
 
-export default function PibEvolutionChart({ level, state, mesoregion, municipality }: Props) {
+export default function PibEvolutionChart({ level, state, vicePresidency, municipality }: Props) {
   const primary =
     level === "municipality" && municipality
       ? { label: municipality.name, series: municipality.pibSeries }
-      : level === "mesoregion" && mesoregion
-        ? { label: mesoregion.name, series: mesoregion.pibSeries }
+      : level === "vice-presidency" && vicePresidency
+        ? { label: vicePresidency.name, series: vicePresidency.pibSeries }
         : { label: "Santa Catarina", series: state.pibSeries };
   const years = primary.series.map((row) => row.year);
 
