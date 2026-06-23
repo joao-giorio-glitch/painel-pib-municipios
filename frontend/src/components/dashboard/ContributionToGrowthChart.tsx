@@ -8,7 +8,7 @@ import { formatCurrencyBRL, formatPercent } from "../../lib/formatters";
 
 type ContributorSeries = {
   name: string;
-  values: Array<number | { value: number; municipality?: string; municipalityChange?: number; referenceChange?: number }>;
+  values: Array<number | { value: number; municipality?: string; municipalityChange?: number; referenceBase?: number }>;
   color?: string;
 };
 
@@ -32,19 +32,17 @@ const cityPalette = [
 ];
 const otherColor = "#94a3b8";
 
-function calculateRelativeContribution(
+function calculateRateContribution(
   municipalityPib: number,
   previousMunicipalityPib: number,
-  referencePib: number,
   previousReferencePib: number
 ) {
   const municipalityChange = municipalityPib - previousMunicipalityPib;
-  const referenceChange = referencePib - previousReferencePib;
 
   return {
-    value: referenceChange === 0 ? 0 : municipalityChange / referenceChange,
+    value: previousReferencePib === 0 ? 0 : municipalityChange / previousReferencePib,
     municipalityChange,
-    referenceChange
+    referenceBase: previousReferencePib
   };
 }
 function buildTopMunicipalityContributors(
@@ -111,8 +109,8 @@ function tooltipFormatter(params: any[]) {
       const rawValue = typeof item.data === "object" ? item.data.value : item.value;
       const label = typeof item.data === "object" && item.data.municipality ? item.data.municipality : item.seriesName;
       const calculation =
-        typeof item.data === "object" && Number.isFinite(item.data.municipalityChange) && Number.isFinite(item.data.referenceChange)
-          ? ` (${formatCurrencyBRL(item.data.municipalityChange)} / ${formatCurrencyBRL(item.data.referenceChange)})`
+        typeof item.data === "object" && Number.isFinite(item.data.municipalityChange) && Number.isFinite(item.data.referenceBase)
+          ? ` (${formatCurrencyBRL(item.data.municipalityChange)} / ${formatCurrencyBRL(item.data.referenceBase)} no ano anterior)`
           : "";
       return `${item.marker}${label}: ${formatPercent(Number(rawValue))}${calculation}`;
     })
@@ -147,12 +145,10 @@ export default function ContributionToGrowthChart({
                 values: years.map((year) => {
                   const municipalityRow = selectedMunicipality.pibSeries.find((row) => row.year === year);
                   const previousMunicipalityRow = selectedMunicipality.pibSeries.find((row) => row.year === year - 1);
-                  const vicePresidencyRow = selectedVicePresidency?.pibSeries.find((row) => row.year === year);
                   const previousVicePresidencyRow = selectedVicePresidency?.pibSeries.find((row) => row.year === year - 1);
-                  return calculateRelativeContribution(
+                  return calculateRateContribution(
                     municipalityRow?.pib ?? 0,
                     previousMunicipalityRow?.pib ?? 0,
-                    vicePresidencyRow?.pib ?? 0,
                     previousVicePresidencyRow?.pib ?? 0
                   );
                 })
@@ -162,12 +158,10 @@ export default function ContributionToGrowthChart({
                 values: years.map((year) => {
                   const municipalityRow = selectedMunicipality.pibSeries.find((row) => row.year === year);
                   const previousMunicipalityRow = selectedMunicipality.pibSeries.find((row) => row.year === year - 1);
-                  const stateRow = state.pibSeries.find((row) => row.year === year);
                   const previousStateRow = state.pibSeries.find((row) => row.year === year - 1);
-                  return calculateRelativeContribution(
+                  return calculateRateContribution(
                     municipalityRow?.pib ?? 0,
                     previousMunicipalityRow?.pib ?? 0,
-                    stateRow?.pib ?? 0,
                     previousStateRow?.pib ?? 0
                   );
                 })
