@@ -1,13 +1,13 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import EChart from "../../../components/EChart";
 import Card from "../ui/Card";
 import type { MunicipalityData, SelectedLevel, StateData, VicePresidencyData, YearValue } from "../../types/economic-dashboard";
 import { calculateCAGR } from "../../lib/economic-calculations";
 import { formatPercent } from "../../lib/formatters";
 
-type Mode = "growth" | "cagr" | "base";
+type Mode = "growth" | "cagr" | "base" | "pib-population";
 
 type Props = {
   level: SelectedLevel;
@@ -34,6 +34,9 @@ function cagrPeriodLabels(years: number[]) {
 
 export default function GrowthAndCagrChart({ level, state, vicePresidency, municipality, isPerCapita = false }: Props) {
   const [mode, setMode] = useState<Mode>("growth");
+  useEffect(() => {
+    if (!isPerCapita && mode === "pib-population") setMode("growth");
+  }, [isPerCapita, mode]);
   const primary =
     level === "municipality" && municipality
       ? { label: municipality.name, series: municipality.pibSeries, cagr: municipality.cagr2023_2030 }
@@ -48,6 +51,7 @@ export default function GrowthAndCagrChart({ level, state, vicePresidency, munic
 
   const years = primary.series.map((row) => row.year);
   const chartYears = mode === "cagr" ? cagrPeriodLabels(years) : years;
+  const isPibPopulation = mode === "pib-population";
   const option = {
     tooltip: {
       trigger: "axis",
@@ -58,7 +62,22 @@ export default function GrowthAndCagrChart({ level, state, vicePresidency, munic
     xAxis: { type: "category", data: chartYears },
     yAxis: { type: "value", min: mode === "base" ? 90 : undefined },
     series:
-      mode === "cagr"
+      isPibPopulation
+        ? [
+            {
+              name: "PIB total",
+              type: "bar",
+              data: primary.series.map((row) => row.totalPibGrowth ?? 0),
+              itemStyle: { color: "#2b8c7e" }
+            },
+            {
+              name: "Popula\u00e7\u00e3o",
+              type: "bar",
+              data: primary.series.map((row) => row.populationGrowth ?? 0),
+              itemStyle: { color: "#d8a23a" }
+            }
+          ]
+        : mode === "cagr"
         ? peers.map((item) => ({
             name: item.label,
             type: "bar",
@@ -73,7 +92,10 @@ export default function GrowthAndCagrChart({ level, state, vicePresidency, munic
   };
 
   return (
-    <Card title={isPerCapita ? "Visualizações de Crescimento do PIB per capita" : "Visualizações de Crescimento"}>
+    <Card
+      title={isPerCapita ? "Visualizações de Crescimento do PIB per capita" : "Visualizações de Crescimento"}
+      tooltip={isPerCapita ? "Compara a variação do PIB total e da população para contextualizar o crescimento do PIB per capita." : undefined}
+    >
       <div className="mini-toggle growth-view-toggle" aria-label="Selecionar visualização de crescimento">
         <button className={mode === "growth" ? "active" : ""} onClick={() => setMode("growth")}>
           Crescimento anual
@@ -84,6 +106,11 @@ export default function GrowthAndCagrChart({ level, state, vicePresidency, munic
         <button className={mode === "base" ? "active" : ""} onClick={() => setMode("base")}>
           Base 2023 = 100
         </button>
+        {isPerCapita ? (
+          <button className={mode === "pib-population" ? "active" : ""} onClick={() => setMode("pib-population")}>
+            PIB vs População
+          </button>
+        ) : null}
       </div>
       <EChart option={option} height={280} />
     </Card>

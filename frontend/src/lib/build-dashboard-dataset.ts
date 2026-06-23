@@ -53,6 +53,13 @@ function toSeries(rows: PibRow[], startYear: number, maxObservedYear: number): Y
         pib: Number(row.pib ?? 0),
         totalPib: Number(row.totalPib ?? row.pib ?? 0),
         population: Number(row.population ?? 0) || undefined,
+        totalPibGrowth: previous
+          ? calculateGrowth(Number(row.totalPib ?? row.pib ?? 0), Number(previous.totalPib ?? previous.pib ?? 0))
+          : 0,
+        populationGrowth:
+          previous && Number(row.population ?? 0) && Number(previous.population ?? 0)
+            ? calculateGrowth(Number(row.population), Number(previous.population))
+            : undefined,
         growth: previous ? calculateGrowth(Number(row.pib ?? 0), Number(previous.pib ?? 0)) : 0,
         isProjected: row.year > maxObservedYear
       };

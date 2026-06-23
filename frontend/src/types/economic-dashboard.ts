@@ -6,6 +6,8 @@ export type YearValue = {
   pib: number;
   totalPib?: number;
   population?: number;
+  totalPibGrowth?: number;
+  populationGrowth?: number;
   growth: number;
   isProjected: boolean;
 };
