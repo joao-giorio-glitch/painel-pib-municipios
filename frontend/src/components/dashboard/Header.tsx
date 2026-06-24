@@ -48,7 +48,7 @@ export default function Header({
 
         <div className="dashboard-mode-toggle mini-toggle" aria-label="Selecionar versão do painel">
           <button className={mode === "pib" ? "active" : ""} onClick={() => onModeChange("pib")}>
-            PIB total
+            PIB
           </button>
           <button className={mode === "per-capita" ? "active" : ""} onClick={() => onModeChange("per-capita")}>
             PIB per capita

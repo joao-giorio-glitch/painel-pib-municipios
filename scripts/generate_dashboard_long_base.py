@@ -163,6 +163,8 @@ def aggregate_per_capita(entities: dict[str, dict], years: list[int]) -> tuple[d
         municipal[code] = {}
         for year in years:
             total_pib, population = item["total_pib"][year], item["population"][year]
+            if population <= 0:
+                continue
             municipal[code][year] = {"pib": total_pib / population, "total_pib": total_pib, "population": population}
             vp_total = vp_totals[item["vice_presidency"]][year]
             vp_total["total_pib"] += total_pib
@@ -223,7 +225,11 @@ def add_common_data(
 ) -> None:
     for vp_name, series in vp_series.items():
         for year in years:
+            if year not in series:
+                continue
             builder.add(year, metric, vp_name, COMPONENT_LEVEL, LEVEL_VP, series[year]["pib"])
+            if year - 1 not in series:
+                continue
             builder.add(year, f"Crescimento anual - {metric}", vp_name, COMPONENT_GROWTH, LEVEL_VP, growth(series[year]["pib"], series[year - 1]["pib"]))
             if metric == "PIB per capita":
                 builder.add_per_capita_drivers(year, vp_name, COMPONENT_GROWTH, LEVEL_VP, series)
@@ -231,13 +237,21 @@ def add_common_data(
     for code, item in entities.items():
         name, series = item["name"], municipal_series[code]
         for year in years:
+            if year not in series:
+                continue
             builder.add(year, metric, name, COMPONENT_LEVEL, LEVEL_MUNICIPALITY, series[year]["pib"])
+            if year - 1 not in series:
+                continue
             builder.add(year, f"Crescimento anual - {metric}", name, COMPONENT_GROWTH, LEVEL_MUNICIPALITY, growth(series[year]["pib"], series[year - 1]["pib"]))
             if metric == "PIB per capita":
                 builder.add_per_capita_drivers(year, name, COMPONENT_GROWTH, LEVEL_MUNICIPALITY, series)
 
     for year in years:
+        if year not in state_series:
+            continue
         builder.add(year, metric, STATE_NAME, COMPONENT_LEVEL, LEVEL_STATE, state_series[year]["pib"])
+        if year - 1 not in state_series:
+            continue
         builder.add(year, f"Crescimento anual - {metric}", STATE_NAME, COMPONENT_GROWTH, LEVEL_STATE, growth(state_series[year]["pib"], state_series[year - 1]["pib"]))
         if metric == "PIB per capita":
             builder.add_per_capita_drivers(year, STATE_NAME, COMPONENT_GROWTH, LEVEL_STATE, state_series)
@@ -311,7 +325,8 @@ def dictionary_frame() -> pd.DataFrame:
             ["nivel_geo", "Instancia analisada: Estado, Vice-presidencia ou Municipio."],
             ["valor", "Valor numerico bruto; percentuais estao na escala decimal (0,05 = 5%)."],
             ["Dados de nivel", "PIB e PIB per capita usados pelo mapa, rankings e evolucao. Rankings sao obtidos por ordenacao do valor."],
-            ["Dados de crescimento", "Taxas anuais usadas pelo mapa, visualizacoes de crescimento e PIB vs Populacao."],
+            ["Dados de crescimento", "Taxas anuais usadas pelo mapa, visualizacoes de crescimento e PIB vs Populacao. O primeiro ano disponivel de cada serie nao possui taxa."],
+            ["Historico per capita", "Quando um municipio nao possui populacao valida em um ano, o PIB per capita nao e informado nesse ano."],
             ["Mapa", "Participacao e CAGR podem ser calculados a partir das series de nivel; nao sao gravados em duplicidade."],
             ["Contribuicao total", "Delta do PIB do componente dividido pelo PIB do territorio de referencia no ano anterior."],
             ["Contribuicao per capita", "Decomposicao aditiva entre variacao do PIB e da populacao, identica a logica do painel."],
@@ -323,7 +338,7 @@ def dictionary_frame() -> pd.DataFrame:
 
 def write_workbook(frame: pd.DataFrame, output_path: Path) -> None:
     with pd.ExcelWriter(output_path, engine="openpyxl", date_format="YYYY-MM-DD") as writer:
-        sheets = [("consolidado", frame)]
+        sheets = [("Dados consolidados", frame)]
         sheets.extend((component, frame.loc[frame["componente"] == component]) for component in sorted(frame["componente"].unique()))
 
         for sheet_name, sheet_frame in sheets:
@@ -344,7 +359,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pib", type=Path, default=raw_dir / "PIB municipios.xlsx")
     parser.add_argument("--populacao", type=Path, default=raw_dir / "Pop.xlsx")
     parser.add_argument("--dimensao", type=Path, default=raw_dir / "dim_municipio_vice_presidencia.xlsx")
-    parser.add_argument("--saida", type=Path, default=project_dir / "Dados" / "Processado" / "base_long_visualizacoes_pib.xlsx")
+    parser.add_argument("--saida", type=Path, default=project_dir / "Dados" / "Processado" / "Dados consolidados.xlsx")
     parser.add_argument("--csv", type=Path, help="Caminho opcional para uma copia CSV da base longa.")
     return parser.parse_args()
 
@@ -358,18 +373,18 @@ def main() -> None:
 
     total_vp, total_state_from_municipalities = aggregate_total(entities, source_years)
     total_state = {year: {"pib": source_state_total[year]} for year in source_years}
-    per_capita_years = [2022, *DISPLAY_YEARS["PIB per capita"]]
+    per_capita_years = sorted(set(source_years) & set(next(iter(entities.values()))["population"]))
     pc_vp, pc_state, pc_municipal = aggregate_per_capita(entities, per_capita_years)
     total_municipal = {code: {year: {"pib": value} for year, value in item["total_pib"].items()} for code, item in entities.items()}
     builder = LongBaseBuilder()
 
     total_years = DISPLAY_YEARS["PIB"]
-    add_common_data(builder, "PIB", total_municipal, total_vp, total_state, entities, total_years)
+    add_common_data(builder, "PIB", total_municipal, total_vp, total_state, entities, source_years)
     add_contributions(builder, "PIB", total_municipal, total_vp, total_state, entities, total_years, per_capita=False)
     validate_contributions(total_vp, total_state, total_municipal, entities, total_years, per_capita=False)
 
     pc_years = DISPLAY_YEARS["PIB per capita"]
-    add_common_data(builder, "PIB per capita", pc_municipal, pc_vp, pc_state, entities, pc_years)
+    add_common_data(builder, "PIB per capita", pc_municipal, pc_vp, pc_state, entities, per_capita_years)
     add_contributions(builder, "PIB per capita", pc_municipal, pc_vp, pc_state, entities, pc_years, per_capita=True)
     validate_contributions(pc_vp, pc_state, pc_municipal, entities, pc_years, per_capita=True)
 

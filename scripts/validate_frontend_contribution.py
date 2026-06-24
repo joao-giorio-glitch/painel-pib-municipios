@@ -73,7 +73,7 @@ def frontend_chart_rows(payload: dict, metric: str) -> pd.DataFrame:
 def parse_args() -> argparse.Namespace:
     project = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description="Valida a contribuicao estadual entre frontend e base longa.")
-    parser.add_argument("--base", type=Path, default=project / "Dados" / "Processado" / "base_long_visualizacoes_pib_atualizada.xlsx")
+    parser.add_argument("--base", type=Path, default=project / "Dados" / "Processado" / "Dados consolidados.xlsx")
     parser.add_argument("--saida-dir", type=Path, default=project / "Dados" / "Processado" / "validacoes")
     return parser.parse_args()
 
@@ -121,7 +121,7 @@ def save_comparison_chart(comparison: pd.DataFrame, metric: str, output_dir: Pat
 def main() -> None:
     args = parse_args()
     project = Path(__file__).resolve().parents[1]
-    base = pd.read_excel(args.base, sheet_name="consolidado")
+    base = pd.read_excel(args.base, sheet_name="Dados consolidados")
     base["year"] = pd.to_datetime(base["data"]).dt.year
     args.saida_dir.mkdir(parents=True, exist_ok=True)
     reports = []
