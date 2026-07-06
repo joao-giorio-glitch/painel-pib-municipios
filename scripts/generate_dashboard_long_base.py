@@ -60,6 +60,10 @@ def share(part: float, total: float) -> float:
     return 0.0 if total == 0 else part / total
 
 
+def cagr(start_value: float, end_value: float, periods: int) -> float:
+    return 0.0 if start_value <= 0 or periods <= 0 else (end_value / start_value) ** (1 / periods) - 1
+
+
 def date_for(year: int) -> str:
     return f"{year}-01-01"
 
@@ -257,6 +261,33 @@ def add_common_data(
             builder.add_per_capita_drivers(year, STATE_NAME, COMPONENT_GROWTH, LEVEL_STATE, state_series)
 
 
+def add_cagr_metric(
+    builder: LongBaseBuilder,
+    variable: str,
+    municipal_series: dict[str, dict[int, dict]],
+    vp_series: dict[str, dict[int, dict]],
+    state_series: dict[int, dict],
+    entities: dict[str, dict],
+    start_year: int,
+    end_year: int,
+) -> None:
+    periods = end_year - start_year
+
+    for vp_name, series in vp_series.items():
+        if start_year not in series or end_year not in series:
+            continue
+        builder.add(start_year, variable, vp_name, COMPONENT_GROWTH, LEVEL_VP, cagr(series[start_year]["pib"], series[end_year]["pib"], periods))
+
+    for code, item in entities.items():
+        series = municipal_series[code]
+        if start_year not in series or end_year not in series:
+            continue
+        builder.add(start_year, variable, item["name"], COMPONENT_GROWTH, LEVEL_MUNICIPALITY, cagr(series[start_year]["pib"], series[end_year]["pib"], periods))
+
+    if start_year in state_series and end_year in state_series:
+        builder.add(start_year, variable, STATE_NAME, COMPONENT_GROWTH, LEVEL_STATE, cagr(state_series[start_year]["pib"], state_series[end_year]["pib"], periods))
+
+
 def add_contributions(
     builder: LongBaseBuilder,
     metric: str,
@@ -325,9 +356,9 @@ def dictionary_frame() -> pd.DataFrame:
             ["nivel_geo", "Instancia analisada: Estado, Vice-presidencia ou Municipio."],
             ["valor", "Valor numerico bruto; percentuais estao na escala decimal (0,05 = 5%)."],
             ["Dados de nivel", "PIB e PIB per capita usados pelo mapa, rankings e evolucao. Rankings sao obtidos por ordenacao do valor."],
-            ["Dados de crescimento", "Taxas anuais usadas pelo mapa, visualizacoes de crescimento e PIB vs Populacao. O primeiro ano disponivel de cada serie nao possui taxa."],
+            ["Dados de crescimento", "Taxas anuais usadas pelo mapa, visualizacoes de crescimento e PIB vs Populacao. Inclui os CAGRs de PIB e PIB per capita."],
             ["Historico per capita", "Quando um municipio nao possui populacao valida em um ano, o PIB per capita nao e informado nesse ano."],
-            ["Mapa", "Participacao e CAGR podem ser calculados a partir das series de nivel; nao sao gravados em duplicidade."],
+            ["Mapa", "Participacao pode ser calculada a partir das series de nivel; nao e gravada em duplicidade."],
             ["Contribuicao total", "Delta do PIB do componente dividido pelo PIB do territorio de referencia no ano anterior."],
             ["Contribuicao per capita", "Decomposicao aditiva entre variacao do PIB e da populacao, identica a logica do painel."],
             ["PIB vs Populacao", "No painel per capita, compara o crescimento anual do PIB e da populacao do mesmo territorio."],
@@ -380,11 +411,13 @@ def main() -> None:
 
     total_years = DISPLAY_YEARS["PIB"]
     add_common_data(builder, "PIB", total_municipal, total_vp, total_state, entities, source_years)
+    add_cagr_metric(builder, "CAGR 2023-2030 - PIB", total_municipal, total_vp, total_state, entities, 2023, 2030)
     add_contributions(builder, "PIB", total_municipal, total_vp, total_state, entities, total_years, per_capita=False)
     validate_contributions(total_vp, total_state, total_municipal, entities, total_years, per_capita=False)
 
     pc_years = DISPLAY_YEARS["PIB per capita"]
     add_common_data(builder, "PIB per capita", pc_municipal, pc_vp, pc_state, entities, per_capita_years)
+    add_cagr_metric(builder, "CAGR 2023-2025 - PIB per capta", pc_municipal, pc_vp, pc_state, entities, 2023, 2025)
     add_contributions(builder, "PIB per capita", pc_municipal, pc_vp, pc_state, entities, pc_years, per_capita=True)
     validate_contributions(pc_vp, pc_state, pc_municipal, entities, pc_years, per_capita=True)
 
