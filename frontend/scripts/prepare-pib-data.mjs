@@ -22,11 +22,20 @@ const files = {
   municipios: path.join(processedDir, "PIB municipios long.xlsx"),
   municipalityVicePresidency: path.join(rawDir, "dim_municipio_vice_presidencia.xlsx"),
   population: path.join(rawDir, "Pop.xlsx"),
+  populationProjection: path.join(processedDir, "projecao_aibi_municipios_sc_2025_2030.xlsx"),
   geoMunicipios: path.join(outputDir, "sc-municipios.geojson"),
   geoVicePresidencies: path.join(outputDir, "sc-vice-presidencias.geojson"),
   pib: path.join(outputDir, "pib.json"),
   pibPerCapita: path.join(outputDir, "pib-per-capita.json")
 };
+
+function normalizeHeader(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
+}
 
 function getValue(row, key) {
   if (Object.hasOwn(row, key)) return row[key];
@@ -38,6 +47,11 @@ function getValue(row, key) {
   return foundKey ? row[foundKey] : null;
 }
 
+function getValueByHeader(row, predicate) {
+  const foundKey = Object.keys(row).find((candidate) => predicate(normalizeHeader(candidate)));
+  return foundKey ? row[foundKey] : null;
+}
+
 function parseDate(value) {
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return new Date(value).toISOString().slice(0, 10);
@@ -45,12 +59,16 @@ function parseDate(value) {
 
 function normalizeCode(value) {
   const digits = String(value ?? "").replace(/\D/g, "");
-  return (digits.length > 6 ? digits.slice(0, 6) : digits).padStart(6, "0");
+  if (!digits) return "";
+  if (digits.length >= 7 && digits.startsWith("42")) return digits.slice(0, 6);
+  return (digits.length > 6 ? digits.slice(-6) : digits).padStart(6, "0");
 }
 
 function readRows(filePath, options = {}) {
-  const workbook = xlsx.readFile(filePath, options);
-  return xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: null });
+  const { sheet, ...readOptions } = options;
+  const workbook = xlsx.readFile(filePath, readOptions);
+  const sheetName = sheet ?? workbook.SheetNames[0];
+  return xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
 }
 
 function readMunicipalityVicePresidencies(filePath) {
@@ -82,6 +100,24 @@ function readPopulation(filePath) {
   });
 
   return byCode;
+}
+
+function readProjectedPopulation(filePath, observedPopulationByCode) {
+  if (!fs.existsSync(filePath)) return observedPopulationByCode;
+
+  const rows = readRows(filePath, { sheet: "Formato longo" });
+  rows.forEach((row) => {
+    const code = normalizeCode(getValueByHeader(row, (key) => key.startsWith("codigo") && key.includes("municipio")));
+    const year = Number(getValueByHeader(row, (key) => key === "ano"));
+    const population = Number(getValueByHeader(row, (key) => key.includes("populacao") && key.includes("inteira")));
+    const series = observedPopulationByCode.get(code);
+    if (!series || !Number.isFinite(year) || !Number.isFinite(population) || population <= 0) return;
+
+    const lastObservedYear = Math.max(...series.keys());
+    if (year > lastObservedYear) series.set(year, population);
+  });
+
+  return observedPopulationByCode;
 }
 
 function readMunicipios(filePath, vicePresidencyByCode) {
@@ -135,7 +171,7 @@ function aggregateVicePresidenciesFromMunicipios(municipios) {
 
 function buildPerCapitaMunicipalRows(municipios, populationByCode) {
   return municipios
-    .filter((row) => !row.isStateTotal && row.year >= 2022 && row.year <= 2025)
+    .filter((row) => !row.isStateTotal && row.year >= 2022 && row.year <= 2030)
     .map((row) => {
       const population = populationByCode.get(row.code)?.get(row.year);
       if (!population) {
@@ -304,8 +340,8 @@ function buildPerCapitaMetadata(municipios, vicePresidencies) {
     generatedAt: new Date().toISOString(),
     years,
     dashboardStartYear: 2023,
-    maxObservedYear: finalYear,
-    projectionStartYear: null,
+    maxObservedYear: Math.min(2025, finalYear),
+    projectionStartYear: finalYear > 2025 ? 2026 : null,
     finalProjectionYear: finalYear,
     scCode: SC_CODE,
     municipios: uniqueSorted(municipios, "municipio"),
@@ -319,7 +355,7 @@ const vicePresidencyByCode = readMunicipalityVicePresidencies(files.municipality
 const municipios = readMunicipios(files.municipios, vicePresidencyByCode);
 const vicePresidencies = aggregateVicePresidenciesFromMunicipios(municipios);
 const scByYear = new Map(municipios.filter((row) => row.isStateTotal).map((row) => [row.year, row]));
-const populationByCode = readPopulation(files.population);
+const populationByCode = readProjectedPopulation(files.populationProjection, readPopulation(files.population));
 const perCapitaMunicipios = buildPerCapitaMunicipalRows(municipios, populationByCode);
 const perCapitaVicePresidencies = aggregatePerCapita(perCapitaMunicipios, "vicePresidency");
 const perCapitaSc = aggregatePerCapita(perCapitaMunicipios.map((row) => ({ ...row, state: "Santa Catarina" })), "state");

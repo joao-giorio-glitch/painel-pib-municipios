@@ -19,7 +19,7 @@ import pandas as pd
 STATE_NAME = "Santa Catarina"
 DISPLAY_YEARS = {
     "PIB": list(range(2023, 2031)),
-    "PIB per capita": list(range(2023, 2026)),
+    "PIB per capita": list(range(2023, 2031)),
 }
 OUTPUT_COLUMNS = ["data", "variavel", "territorio", "componente", "nivel_geo", "valor"]
 COMPONENT_LEVEL = "Dados de n\u00edvel"
@@ -45,7 +45,11 @@ def find_column(columns: list[object], predicate, label: str) -> object:
 
 def normalize_code(value: object) -> str:
     digits = re.sub(r"\D", "", str(value))
-    return digits[-6:].zfill(6) if digits else ""
+    if not digits:
+        return ""
+    if len(digits) >= 7 and digits.startswith("42"):
+        return digits[:6]
+    return digits[-6:].zfill(6)
 
 
 def value_or_zero(value: object) -> float:
@@ -110,12 +114,45 @@ def read_population(path: Path) -> tuple[dict[str, dict], list[int]]:
     return municipalities, years
 
 
+def read_projected_population(path: Path) -> tuple[dict[str, dict[int, float]], list[int]]:
+    frame = pd.read_excel(path, sheet_name="Formato longo")
+    columns = list(frame.columns)
+    code_column = find_column(columns, lambda key: key.startswith("codigo") and "municipio" in key, "codigo municipal AiBi")
+    year_column = find_column(columns, lambda key: key == "ano", "ano AiBi")
+    population_column = find_column(columns, lambda key: "populacao" in key and "inteira" in key, "populacao projetada inteira")
+
+    projected: dict[str, dict[int, float]] = defaultdict(dict)
+    for _, row in frame.iterrows():
+        code = normalize_code(row[code_column])
+        year = int(row[year_column])
+        population = value_or_zero(row[population_column])
+        if code and population > 0:
+            projected[code][year] = population
+
+    years = sorted({year for series in projected.values() for year in series})
+    if not projected or not years:
+        raise ValueError("A base de populacao projetada AiBi esta vazia.")
+    return dict(projected), years
+
+
 def build_entities(
-    pib_path: Path, population_path: Path, dimension_path: Path
+    pib_path: Path, population_path: Path, dimension_path: Path, projected_population_path: Path | None = None
 ) -> tuple[dict[str, dict], dict[int, float], list[int]]:
     vice_presidency_by_code = read_dimension(dimension_path)
     pib_municipalities, state_total, pib_years = read_wide_source(pib_path, "total_pib")
     population_municipalities, population_years = read_population(population_path)
+
+    if projected_population_path:
+        projected_population, projected_years = read_projected_population(projected_population_path)
+        missing_projected = sorted(set(pib_municipalities) - set(projected_population))
+        if missing_projected:
+            raise ValueError(f"{len(missing_projected)} municipios sem populacao projetada AiBi.")
+        last_observed_population_year = max(population_years)
+        for code, series in population_municipalities.items():
+            for year, value in projected_population[code].items():
+                if year > last_observed_population_year:
+                    series["population"][year] = value
+        population_years = sorted(set(population_years) | {year for year in projected_years if year > last_observed_population_year})
 
     missing_vp = sorted(set(pib_municipalities) - set(vice_presidency_by_code))
     missing_population = sorted(set(pib_municipalities) - set(population_municipalities))
@@ -124,7 +161,6 @@ def build_entities(
     if missing_population:
         raise ValueError(f"{len(missing_population)} municipios sem populacao.")
 
-    common_years = sorted(set(pib_years) & set(population_years))
     entities = {}
     for code, item in pib_municipalities.items():
         population = population_municipalities[code]["population"]
@@ -140,8 +176,6 @@ def build_entities(
         if invalid:
             raise ValueError(f"Populacao invalida em {year}: {', '.join(invalid[:5])}")
 
-    # O PIB tem projecoes ate 2030; a populacao (e, portanto, o per capita)
-    # vai somente ate 2025. O chamador precisa conhecer a extensao completa do PIB.
     return entities, state_total, pib_years
 
 
@@ -156,6 +190,28 @@ def aggregate_total(entities: dict[str, dict], years: list[int]) -> tuple[dict[s
     return (
         {name: {year: {"pib": value} for year, value in values.items()} for name, values in vp.items()},
         {year: {"pib": value} for year, value in state.items()},
+    )
+
+
+def aggregate_population(entities: dict[str, dict], years: list[int]) -> tuple[dict[str, dict[int, dict]], dict[int, dict], dict[str, dict[int, dict]]]:
+    municipal: dict[str, dict[int, dict]] = {}
+    vp = defaultdict(lambda: defaultdict(float))
+    state = defaultdict(float)
+
+    for code, item in entities.items():
+        municipal[code] = {}
+        for year in years:
+            population = item["population"].get(year)
+            if population is None:
+                continue
+            municipal[code][year] = {"population": population}
+            vp[item["vice_presidency"]][year] += population
+            state[year] += population
+
+    return (
+        {name: {year: {"population": value} for year, value in values.items()} for name, values in vp.items()},
+        {year: {"population": value} for year, value in state.items()},
+        municipal,
     )
 
 
@@ -216,6 +272,30 @@ class LongBaseBuilder:
         previous = series[year - 1]
         current = series[year]
         self.add(year, "Crescimento anual da popula\u00e7\u00e3o - PIB per capita", territory, component, level, growth(current["population"], previous["population"]))
+
+
+def add_population_level_data(
+    builder: LongBaseBuilder,
+    municipal_series: dict[str, dict[int, dict]],
+    vp_series: dict[str, dict[int, dict]],
+    state_series: dict[int, dict],
+    entities: dict[str, dict],
+    years: list[int],
+) -> None:
+    for vp_name, series in vp_series.items():
+        for year in years:
+            if year in series:
+                builder.add(year, "Popula\u00e7\u00e3o", vp_name, COMPONENT_LEVEL, LEVEL_VP, series[year]["population"])
+
+    for code, item in entities.items():
+        series = municipal_series[code]
+        for year in years:
+            if year in series:
+                builder.add(year, "Popula\u00e7\u00e3o", item["name"], COMPONENT_LEVEL, LEVEL_MUNICIPALITY, series[year]["population"])
+
+    for year in years:
+        if year in state_series:
+            builder.add(year, "Popula\u00e7\u00e3o", STATE_NAME, COMPONENT_LEVEL, LEVEL_STATE, state_series[year]["population"])
 
 
 def add_common_data(
@@ -390,6 +470,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pib", type=Path, default=raw_dir / "PIB municipios.xlsx")
     parser.add_argument("--populacao", type=Path, default=raw_dir / "Pop.xlsx")
     parser.add_argument("--dimensao", type=Path, default=raw_dir / "dim_municipio_vice_presidencia.xlsx")
+    parser.add_argument("--populacao-projetada", type=Path, default=project_dir / "Dados" / "Processado" / "projecao_aibi_municipios_sc_2025_2030.xlsx")
     parser.add_argument("--saida", type=Path, default=project_dir / "Dados" / "Processado" / "Dados consolidados.xlsx")
     parser.add_argument("--csv", type=Path, help="Caminho opcional para uma copia CSV da base longa.")
     return parser.parse_args()
@@ -397,7 +478,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    entities, source_state_total, source_years = build_entities(args.pib, args.populacao, args.dimensao)
+    entities, source_state_total, source_years = build_entities(args.pib, args.populacao, args.dimensao, args.populacao_projetada)
     required_years = list(range(2022, 2031))
     if not set(required_years).issubset(source_years):
         raise ValueError("A base de PIB precisa conter os anos de 2022 a 2030.")
@@ -405,19 +486,25 @@ def main() -> None:
     total_vp, total_state_from_municipalities = aggregate_total(entities, source_years)
     total_state = {year: {"pib": source_state_total[year]} for year in source_years}
     per_capita_years = sorted(set(source_years) & set(next(iter(entities.values()))["population"]))
+    population_years = [year for year in range(2002, 2031) if year in per_capita_years]
+    population_vp, population_state, population_municipal = aggregate_population(entities, population_years)
     pc_vp, pc_state, pc_municipal = aggregate_per_capita(entities, per_capita_years)
     total_municipal = {code: {year: {"pib": value} for year, value in item["total_pib"].items()} for code, item in entities.items()}
     builder = LongBaseBuilder()
 
     total_years = DISPLAY_YEARS["PIB"]
+    add_population_level_data(builder, population_municipal, population_vp, population_state, entities, population_years)
     add_common_data(builder, "PIB", total_municipal, total_vp, total_state, entities, source_years)
     add_cagr_metric(builder, "CAGR 2023-2030 - PIB", total_municipal, total_vp, total_state, entities, 2023, 2030)
     add_contributions(builder, "PIB", total_municipal, total_vp, total_state, entities, total_years, per_capita=False)
     validate_contributions(total_vp, total_state, total_municipal, entities, total_years, per_capita=False)
 
     pc_years = DISPLAY_YEARS["PIB per capita"]
+    if not set([2022, *pc_years]).issubset(per_capita_years):
+        missing = sorted(set([2022, *pc_years]) - set(per_capita_years))
+        raise ValueError(f"A base de PIB per capita precisa conter populacao para estes anos: {missing}")
     add_common_data(builder, "PIB per capita", pc_municipal, pc_vp, pc_state, entities, per_capita_years)
-    add_cagr_metric(builder, "CAGR 2023-2025 - PIB per capta", pc_municipal, pc_vp, pc_state, entities, 2023, 2025)
+    add_cagr_metric(builder, "CAGR 2023-2030 - PIB per capta", pc_municipal, pc_vp, pc_state, entities, 2023, 2030)
     add_contributions(builder, "PIB per capita", pc_municipal, pc_vp, pc_state, entities, pc_years, per_capita=True)
     validate_contributions(pc_vp, pc_state, pc_municipal, entities, pc_years, per_capita=True)
 
