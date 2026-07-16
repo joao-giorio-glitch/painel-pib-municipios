@@ -1,0 +1,26 @@
+---
+title: "Metodologia de projeção populacional e contribuição ao crescimento"
+subtitle: "Projeções municipais de PIB e PIB per capita do Observatório FIESC"
+author:
+  - name: Observatório FIESC
+abstract: |
+  Este documento descreve a metodologia utilizada pelo Observatório FIESC para a construção de duas famílias de indicadores associadas às projeções municipais de PIB e PIB per capita em Santa Catarina. A primeira corresponde às projeções populacionais municipais obtidas pelo método de tendência de crescimento populacional para áreas menores, conhecido como AiBi. A segunda corresponde aos indicadores de contribuição ao crescimento, calculados para as instâncias geográficas municipal, de vice-presidência e estadual, tanto para o PIB total quanto para o PIB per capita. O texto formaliza os procedimentos de estimação, as regras de agregação territorial, os critérios de fechamento estadual e a interpretação econômica dos indicadores.
+keywords:
+  - PIB municipal
+  - PIB per capita
+  - projeção populacional
+  - AiBi
+  - contribuição ao crescimento
+
+date: last-modified
+bibliography: metodologia_painel_pib.bib
+format:
+  elsevier-pdf:
+    default: true
+    journal:
+      model: 5p
+      formatting: preprint
+      cite-style: authoryear
+---
+
+{{< include metodologia_painel_pib_corpo.qmd >}}

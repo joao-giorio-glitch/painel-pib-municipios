@@ -1,0 +1,25 @@
+---
+title: Título do Documento
+subtitle: Subtítulo explicativo do trabalho
+author:
+  - name: Observatório FIESC
+abstract: |
+  Resumo do documento em um único parágrafo. Descreva aqui o objetivo do trabalho, a metodologia utilizada e as principais conclusões ou contribuições, de forma que o leitor compreenda o escopo do documento sem precisar da leitura completa.
+
+keywords:
+  - Palavra-chave 1
+  - Palavra-chave 2
+  - Palavra-chave 3
+
+date: last-modified
+bibliography: bibliography.bib
+format:
+  elsevier-pdf:
+    default: true
+    journal:
+      model: 5p
+      formatting: preprint
+      cite-style: authoryear
+---
+
+{{< include corpo.qmd >}}

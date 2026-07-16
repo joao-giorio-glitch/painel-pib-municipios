@@ -1,0 +1,57 @@
+# Introdução
+
+Texto introdutório apresentando o contexto, a motivação e os objetivos do documento. Utilize este espaço para descrever o problema abordado e estruturar o restante do texto, indicando o conteúdo de cada seção subsequente.
+
+Referências bibliográficas podem ser citadas ao longo do texto, como neste exemplo [@Exemplo2026].
+
+# Bases de Dados Utilizadas
+
+A seguir, liste as principais fontes de dados empregadas no trabalho, indicando origem e período da série. Esse formato de lista é útil para enumerar fontes, etapas ou insumos:
+
+- **Fonte de Dados 1**: descrição da fonte, cobertura temporal e órgão responsável. [@Exemplo2026]
+- **Fonte de Dados 2**: descrição da fonte, cobertura temporal e órgão responsável. [@ExemploDados2025]
+- **Fonte de Dados 3**: descrição da fonte, cobertura temporal e órgão responsável.
+
+# Metodologia
+
+Descreva aqui a abordagem metodológica geral, incluindo as etapas do procedimento e a lógica de encadeamento entre elas.
+
+## Procedimento
+
+- **Etapa 1**: descrição da primeira etapa do procedimento.
+- **Etapa 2**: descrição da segunda etapa do procedimento.
+- **Output**: resultado esperado ao final das etapas descritas.
+
+## Especificação do Modelo
+
+Utilize blocos de equação em LaTeX para apresentar modelos e fórmulas. Equações podem ser numeradas automaticamente pelo formato:
+
+$$
+Y_t = \alpha + \beta_1 X_{1,t} + \beta_2 X_{2,t} + \varepsilon_t
+$$
+
+onde:
+
+- $Y_t$ é a variável dependente no período $t$;
+- $X_{1,t}$ e $X_{2,t}$ são variáveis explicativas;
+- $\alpha$ é o intercepto, $\beta_1$ e $\beta_2$ são os coeficientes estimados e $\varepsilon_t$ é o termo de erro.
+
+### Subseção de Detalhamento
+
+Um nível adicional de detalhamento pode ser incluído em subseções, por exemplo para descrever a previsão e reconstrução de uma série a partir do modelo estimado:
+
+$$
+\widehat{Y}_t = \hat{\alpha} + \hat{\beta}_1 X_{1,t} + \hat{\beta}_2 X_{2,t}
+$$
+
+Essa estrutura hierárquica (seção, subseção, sub-subseção) segue a formatação padrão do documento.
+
+# Resultados e Aplicações
+
+Descreva aqui os principais resultados obtidos e suas aplicações práticas:
+
+- Aplicação 1 dos resultados.
+- Aplicação 2 dos resultados.
+- Aplicação 3 dos resultados.
+
+# Referências {-}

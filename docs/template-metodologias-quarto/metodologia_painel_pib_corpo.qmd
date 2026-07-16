@@ -1,0 +1,173 @@
+# Introdução
+
+A metodologia das projeções municipais de PIB e PIB per capita do Observatório FIESC combina séries econômicas municipais, informações populacionais e agregações territoriais institucionais em três níveis de análise: Estado, vice-presidências e municípios. A construção dos indicadores demanda duas etapas metodológicas centrais. A primeira consiste na extensão da base populacional municipal até 2030, necessária para a construção do PIB per capita em horizonte compatível com as projeções do PIB. A segunda corresponde à mensuração da contribuição de cada território para o crescimento da instância geográfica superior, permitindo decompor a variação agregada do PIB e do PIB per capita em parcelas atribuíveis aos territórios componentes.
+
+Este documento descreve essas duas etapas em linguagem de seção metodológica de artigo acadêmico. Inicialmente, apresenta-se o método de tendência para estimação de populações de áreas menores, conhecido como AiBi, conforme a formulação aplicada pelo IBGE para estimativas populacionais municipais [@IBGE2025; @IBGEEstimativas]. Em seguida, formaliza-se a lógica dos indicadores de contribuição ao crescimento de PIB e PIB per capita utilizados na metodologia das projeções municipais do Observatório FIESC.
+
+# Projeções populacionais municipais pelo método AiBi
+
+## Contexto metodológico
+
+O método AiBi é uma aplicação do método de tendência de crescimento populacional para áreas menores. Sua finalidade é distribuir, entre unidades territoriais menores, uma população total conhecida ou projetada para uma unidade territorial superior. No caso das projeções municipais do Observatório FIESC, a unidade superior é Santa Catarina e as unidades menores são os municípios catarinenses.
+
+A lógica geral é hierárquica. Parte-se de uma população estadual de controle para cada ano projetado e estima-se a população de cada município de forma que a soma municipal reproduza exatamente o total estadual. Desse modo, o método preserva simultaneamente duas propriedades: a tendência relativa observada no período censitário de referência e o fechamento contábil em relação ao total da unidade superior.
+
+Na metodologia do Observatório FIESC, a aplicação do AiBi foi necessária porque a base de população municipal observada originalmente estava disponível até 2025, enquanto as projeções municipais de PIB alcançavam 2030. Para estender as projeções de PIB per capita, foi construída uma projeção municipal de população para o período 2026--2030. A base de calibração do método utiliza os totais censitários municipais de 2010 e 2022 e os controles estaduais de população para os anos projetados.
+
+## Formulação do método AiBi
+
+Considere que $P_t$ representa a população da unidade territorial superior no ano $t$ e que $P_{i,t}$ representa a população da área menor $i$ no mesmo ano. O método AiBi assume que a população da área menor pode ser descrita por uma função linear da população da área maior:
+
+$$
+P_{i,t} = a_i P_t + b_i.
+$$
+
+Os coeficientes $a_i$ e $b_i$ são calculados a partir de dois pontos censitários. Nesta metodologia, os pontos de referência são 2010 e 2022. Assim, para cada município $i$:
+
+$$
+a_i = \frac{P_{i,2022} - P_{i,2010}}{P_{SC,2022} - P_{SC,2010}},
+$$
+
+$$
+b_i = P_{i,2010} - a_i P_{SC,2010}.
+$$
+
+Depois de estimados os coeficientes, a população municipal projetada em qualquer ano $t$ é obtida por:
+
+$$
+\widehat{P}_{i,t} = a_i P_{SC,t} + b_i.
+$$
+
+O coeficiente $a_i$ expressa a participação do município $i$ no incremento populacional estadual observado entre 2010 e 2022. Municípios que cresceram mais em termos absolutos no período censitário apresentam valores mais elevados de $a_i$. Municípios que perderam população podem apresentar $a_i < 0$, indicando que sua trajetória contribuiu negativamente para o incremento estadual. O coeficiente $b_i$ ajusta o nível da série, garantindo que a equação reproduza os pontos censitários usados na calibração.
+
+## Fechamento estadual e arredondamento
+
+A equação AiBi produz projeções decimais. Como a população municipal deve ser representada em pessoas inteiras, a metodologia adota um procedimento de arredondamento por maiores restos. Inicialmente, calcula-se a projeção decimal de cada município. Em seguida, retém-se a parte inteira de cada projeção e calcula-se a diferença entre a soma das partes inteiras e o total estadual de controle. As unidades remanescentes são distribuídas aos municípios com maiores restos decimais.
+
+O objetivo do procedimento é preservar a identidade de fechamento:
+
+$$
+\sum_{i=1}^{n} \widehat{P}_{i,t} = P_{SC,t}.
+$$
+
+Esse fechamento é validado em todos os anos projetados. A validação verifica se a soma municipal inteira coincide com o controle estadual e se a diferença inteira é igual a zero.
+
+## Tratamento de Pescaria Brava e Balneário Rincão
+
+A aplicação do método exige uma malha territorial comparável entre os dois pontos censitários utilizados na estimação. Entretanto, Pescaria Brava e Balneário Rincão não existiam como municípios em 2010. Para evitar que mudanças administrativas de limites fossem confundidas com crescimento demográfico, foram criadas unidades sintéticas que representam esses municípios na malha compatibilizada de 2010.
+
+A população sintética de 2010 foi calculada por regra proporcional. Seja $N$ o novo município, $M$ o município de origem e $\tau$ o primeiro ano em que o novo município aparece como unidade emancipada na base. A população sintética de $N$ em 2010 é dada por:
+
+$$
+P_{N,2010}^{sint} = P_{M,2010}\left(\frac{P_{N,\tau}}{P_{N,\tau} + P_{M,\tau}}\right).
+$$
+
+A população compatibilizada do município de origem em 2010 passa a ser:
+
+$$
+P_{M,2010}^{novo} = P_{M,2010} - P_{N,2010}^{sint}.
+$$
+
+Na metodologia, Pescaria Brava foi compatibilizada em relação a Laguna e Balneário Rincão em relação a Içara. Essa etapa torna a malha de 2010 comparável à malha de 2022 e permite que os coeficientes AiBi capturem tendências demográficas, e não apenas alterações na divisão político-administrativa.
+
+## Interpretação dos coeficientes
+
+A interpretação dos coeficientes é diretamente vinculada ao crescimento observado entre os censos. O coeficiente $a_i$ mede a sensibilidade da população do município ao crescimento estadual. Se $a_i$ é positivo, a população municipal cresce quando o controle estadual cresce; se é negativo, o município apresenta trajetória declinante no período de calibração e essa tendência é preservada na projeção, desde que não gere populações negativas.
+
+O intercepto $b_i$ não deve ser interpretado isoladamente como população autônoma. Sua função é ajustar a reta municipal de forma que a relação linear entre o município e o Estado passe pelos pontos censitários compatibilizados. Em conjunto, $a_i$ e $b_i$ definem a trajetória municipal condicionada aos controles estaduais.
+
+## Limitações e cuidados de interpretação
+
+O AiBi é um método de tendência. Portanto, ele projeta o futuro a partir da relação observada entre o crescimento municipal e o crescimento estadual no período de calibração. A metodologia não incorpora explicitamente choques futuros locais, mudanças econômicas inesperadas, alterações em infraestrutura, políticas urbanas ou movimentos migratórios que não estejam refletidos na trajetória 2010--2022.
+
+Além disso, as projeções das vice-presidências não são estimadas por um AiBi próprio. Elas são obtidas pela soma das populações projetadas dos municípios que compõem cada vice-presidência. Da mesma forma, a população estadual utilizada nas projeções municipais é o resultado do fechamento das projeções municipais aos controles estaduais.
+
+# Indicadores de contribuição ao crescimento
+
+## Estrutura territorial dos indicadores
+
+Os indicadores de contribuição ao crescimento mensuram quanto cada território adiciona, em pontos percentuais, à taxa de crescimento da instância geográfica superior. A lógica é aplicada de forma hierárquica. Na análise estadual, as vice-presidências são os componentes que contribuem para o crescimento de Santa Catarina. Na análise de vice-presidência, os municípios são os componentes que contribuem para o crescimento da respectiva vice-presidência. Na análise municipal, o município selecionado pode ser avaliado em relação à sua vice-presidência e em relação a Santa Catarina.
+
+Assim, para cada território componente $i$ e para cada território de referência $R$, a contribuição é sempre definida em relação ao crescimento de $R$. Esse desenho permite que a soma das contribuições dos componentes reproduza a taxa de crescimento do território superior.
+
+## Contribuição ao crescimento do PIB
+
+Seja $Y_{i,t}$ o PIB do território componente $i$ no ano $t$ e $Y_{R,t}$ o PIB do território de referência $R$. A variação absoluta do PIB do componente é:
+
+$$
+\Delta Y_{i,t} = Y_{i,t} - Y_{i,t-1}.
+$$
+
+A contribuição do componente $i$ para o crescimento do território de referência $R$ é calculada como:
+
+$$
+C_{i,t}^{PIB\mid R} = \frac{\Delta Y_{i,t}}{Y_{R,t-1}}.
+$$
+
+Essa medida está na mesma escala da taxa de crescimento de $R$. Portanto, se $C_{i,t}^{PIB\mid R}=0{,}02$, o território $i$ adicionou 2 pontos percentuais ao crescimento do PIB do território de referência no ano $t$.
+
+A soma das contribuições dos componentes fecha a taxa de crescimento do PIB da referência:
+
+$$
+\sum_{i \in R} C_{i,t}^{PIB\mid R} = \frac{Y_{R,t} - Y_{R,t-1}}{Y_{R,t-1}} = g_{R,t}^{PIB}.
+$$
+
+No nível estadual, $R$ é Santa Catarina e $i$ representa cada vice-presidência. No nível de vice-presidência, $R$ é a vice-presidência selecionada e $i$ representa cada município pertencente a ela. No nível municipal, o mesmo município pode ser comparado a dois referenciais: sua vice-presidência e Santa Catarina.
+
+## Contribuição ao crescimento do PIB per capita
+
+O PIB per capita é uma razão entre PIB e população. Por isso, a contribuição ao crescimento do PIB per capita não pode ser calculada apenas como variação do PIB per capita do componente dividida pelo PIB per capita da referência no ano anterior. A metodologia adota uma decomposição que separa o efeito do PIB e o efeito da população, preservando o fechamento em relação ao crescimento do PIB per capita do território superior.
+
+Seja $Y_{i,t}$ o PIB total do componente $i$, $N_{i,t}$ sua população, $Y_{R,t}$ o PIB total do território de referência e $N_{R,t}$ sua população. Defina:
+
+$$
+\Delta Y_{i,t} = Y_{i,t} - Y_{i,t-1},
+$$
+
+$$
+\Delta N_{i,t} = N_{i,t} - N_{i,t-1},
+$$
+
+$$
+g_{N,R,t} = \frac{N_{R,t} - N_{R,t-1}}{N_{R,t-1}}.
+$$
+
+A contribuição do componente $i$ para o crescimento do PIB per capita da referência $R$ é dada por:
+
+$$
+C_{i,t}^{pc\mid R} = \frac{\frac{\Delta Y_{i,t}}{Y_{R,t-1}} - \frac{\Delta N_{i,t}}{N_{R,t-1}}}{1 + g_{N,R,t}}.
+$$
+
+Essa expressão corresponde à decomposição aditiva da variação do PIB per capita. Ao somar todos os componentes de $R$, obtém-se:
+
+$$
+\sum_{i \in R} C_{i,t}^{pc\mid R} = \frac{\frac{\Delta Y_{R,t}}{Y_{R,t-1}} - \frac{\Delta N_{R,t}}{N_{R,t-1}}}{1 + g_{N,R,t}}.
+$$
+
+Como o crescimento do PIB per capita do território de referência é:
+
+$$
+g_{R,t}^{pc} = \frac{\frac{Y_{R,t}}{N_{R,t}}}{\frac{Y_{R,t-1}}{N_{R,t-1}}} - 1,
+$$
+
+segue que:
+
+$$
+g_{R,t}^{pc} = \frac{g_{Y,R,t} - g_{N,R,t}}{1 + g_{N,R,t}},
+$$
+
+onde $g_{Y,R,t}$ é o crescimento do PIB total da referência. Assim, a soma das contribuições dos componentes também fecha o crescimento do PIB per capita do território de referência.
+
+## Interpretação econômica
+
+Os indicadores de contribuição não representam participação territorial no PIB nem ranking de tamanho econômico. Eles indicam quanto cada território adicionou ou retirou da taxa de crescimento do território superior. Um município pequeno pode ter contribuição relevante se sua variação absoluta for grande relativamente à base do território de referência. Da mesma forma, um município pode apresentar contribuição negativa se seu PIB ou sua população evoluir de forma desfavorável à taxa agregada.
+
+No caso do PIB, a interpretação é direta: a contribuição mede o incremento absoluto do PIB do componente dividido pelo PIB do território superior no ano anterior. No caso do PIB per capita, a interpretação considera simultaneamente a variação do PIB e da população. Um território contribui positivamente para o PIB per capita da referência quando seu efeito de PIB supera, na decomposição, o efeito populacional associado.
+
+# Integração dos procedimentos nas projeções municipais
+
+As projeções populacionais AiBi e os indicadores de contribuição ao crescimento se articulam na metodologia das projeções municipais de PIB per capita do Observatório FIESC. As populações municipais projetadas até 2030 permitem calcular o PIB per capita municipal, de vice-presidência e estadual para o mesmo horizonte temporal das projeções de PIB. A partir dessas séries, os indicadores de crescimento anual e contribuição ao crescimento são calculados para cada instância geográfica considerada na metodologia.
+
+A base de dados final é organizada em formato longo, com as colunas `data`, `variavel`, `territorio`, `componente`, `nivel_geo` e `valor`. Essa estrutura permite consolidar os resultados por combinação de variável, componente e nível geográfico. Os dados de contribuição ao crescimento são mantidos como componente específico porque dependem do território de referência e da decomposição hierárquica descrita acima.
+
+# Referências {-}
